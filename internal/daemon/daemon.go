@@ -135,7 +135,7 @@ func (d *Daemon) reloadIfBootstrapped() error {
 		return err
 	}
 
-	err = d.db.StartWithPeers(d.trustStore.Remotes().Addresses(trust.Peer), d.clusterCert, d.Address)
+	err = d.db.StartWithPeers(d.trustStore.Remotes().Addresses(), d.clusterCert, d.Address)
 	return err
 }
 
@@ -231,7 +231,7 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddress string) error {
 		return err
 	}
 
-	server := d.initServer(resources.Endpoints, resources.InternalEndpoints)
+	server := d.initServer(nil, resources.InternalEndpoints)
 	network := endpoints.NewNetwork(endpoints.EndpointNetwork, server, d.Address, d.clusterCert)
 
 	err = d.endpoints.Add(network)
