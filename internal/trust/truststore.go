@@ -63,17 +63,12 @@ func (ts *Store) Remotes() Remotes {
 	ts.remotesMu.RLock()
 	defer ts.remotesMu.RUnlock()
 
-	remotesCopy := make(Remotes, len(ts.remotes))
-	for remoteType, remotesByName := range ts.remotes {
-		remotes := make(map[string]Remote, len(remotesByName))
-		for remoteName, remote := range remotesByName {
-			remotes[remoteName] = remote
-		}
-
-		remotesCopy[remoteType] = remotes
+	remotes := make(Remotes, len(ts.remotes))
+	for remoteName, remote := range ts.remotes {
+		remotes[remoteName] = remote
 	}
 
-	return remotesCopy
+	return remotes
 }
 
 // Refresh reloads the truststore and runs any associated hooks.
