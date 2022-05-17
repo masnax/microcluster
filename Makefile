@@ -6,8 +6,8 @@ default: build
 # Build targets.
 .PHONY: build
 build:
-	go install -v ./cmd/microclusterctl
-	go install -v ./cmd/microcluster
+	go install -v ./cmd/lxd-cloud-cellctl
+	go install -v ./cmd/lxd-cloud-celld
 
 # Snap targets
 .PHONY: snaps

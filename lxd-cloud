@@ -1,0 +1,83 @@
+#!/bin/bash
+
+body() {
+
+if [[ $1 == "" ]]
+then
+	echo "NO"
+	return
+fi
+
+
+if [[ $1 == "start" ]]
+then
+  prefix="m"
+  if [[ $3 != "" ]] ; then
+    prefix="$3"
+  fi
+  addr="9"
+  if [[ $4 != "" ]] ; then
+    addr="$4"
+  fi
+
+
+	sudo /root/go/bin/lxd-cloud-celld --state-dir /${prefix}aw0 --admin-address 127.0.0.1:${addr}000 --consumer-address 127.0.0.1:${addr}100 &
+	/root/go/bin/lxd-cloud-cellctl waitready --state-dir /${prefix}aw0
+	cert=$(sudo cat /${prefix}aw0/server.crt | sed -e "s/^/  /g")
+  sudo cat << EOF > "/${prefix}aw0/truststore/${prefix}aw0.yaml"
+name: ${prefix}aw0
+type: peer
+addresses:
+ - 127.0.0.1:${addr}000
+certificate: |
+$cert
+EOF
+
+	echo "Bootstrapping"
+	/root/go/bin/lxd-cloud-cellctl init --bootstrap --state-dir /${prefix}aw0
+	echo "Bootstrap Done"
+  /root/go/bin/lxd-cloud-cellctl sql "create table test (id integer primary key autoincrement not null, uuid integer not null, key text, value text, unique (uuid, key));" --state-dir /${prefix}aw0
+	for i in `seq 1 $2`; do
+		sudo mkdir /${prefix}aw$i
+		#sudo cp -r /${prefix}aw0/server.{crt,key} /${prefix}aw$i/
+		sudo /root/go/bin/lxd-cloud-celld --state-dir /${prefix}aw$i --admin-address 127.0.0.1:${addr}00$i --consumer-address 127.0.0.1:${addr}10$i  &
+  	/root/go/bin/lxd-cloud-cellctl waitready --state-dir /${prefix}aw$i
+		sudo cp -r /${prefix}aw0/cluster.{crt,key} /${prefix}aw$i/
+
+		echo "Daemon at state dir /${prefix}aw$i created."
+	done
+
+	echo "WRITING FILES"
+	for i in `seq 0 $2` ; do
+		for j in `seq 0 $2` ; do
+				cert=$(sudo cat /${prefix}aw$j/server.crt | sed -e "s/^/  /g")
+			sudo cat << EOF > "/${prefix}aw$i/truststore/${prefix}aw$j.yaml"
+name: ${prefix}aw$j
+type: peer
+addresses:
+ - 127.0.0.1:${addr}00$j
+certificate: |
+$cert
+EOF
+    done
+  done
+
+	echo WRITING DONE
+	sleep 2
+
+	for i in `seq 1 $2`; do
+		/root/go/bin/lxd-cloud-cellctl init --join 127.0.0.1:${addr}000 --state-dir /${prefix}aw$i
+		echo Member $i joined.
+	done
+
+
+elif [[ $1 == "kill" ]]
+then
+  prefix="$2"
+	ps -ef | grep -i lxd-cloud- | grep -v grep  | awk '{print $2}' | xargs sudo kill -9
+	sudo rm -rf /${prefix}aw*
+
+fi
+}
+
+body $@
