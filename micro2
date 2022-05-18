@@ -1,0 +1,56 @@
+#!/bin/zsh
+
+body() {
+
+if [[ $1 == "" ]]
+then
+	echo "NO"
+	return
+fi
+
+
+if [[ $1 == "start" ]]
+then
+  prefix="m"
+  if [[ $3 != "" ]] ; then
+    prefix="$3"
+  fi
+  addr="9"
+  if [[ $4 != "" ]] ; then
+    addr="$4"
+  fi
+
+
+	/root/go/bin/lxd-cloud-celld --state-dir /${prefix}aw0 --admin-address 127.0.0.1:${addr}000 --consumer-address 127.0.0.1:${addr}100 &
+	/root/go/bin/lxd-cloud-cellctl waitready --state-dir /${prefix}aw0
+
+	/root/go/bin/lxd-cloud-cellctl init --bootstrap --state-dir /${prefix}aw0
+	echo "Bootstrapped First Node"
+ # /root/go/bin/lxd-cloud-cellctl sql "create table test (id integer primary key autoincrement not null, uuid integer not null, key text, value text, unique (uuid, key));" --state-dir /${prefix}aw0
+	for i in `seq 1 $2`; do
+		mkdir /${prefix}aw$i
+		/root/go/bin/lxd-cloud-celld --state-dir /${prefix}aw$i --admin-address 127.0.0.1:${addr}00$i --consumer-address 127.0.0.1:${addr}10$i  &
+  	/root/go/bin/lxd-cloud-cellctl waitready --state-dir /${prefix}aw$i
+		echo "Daemon at state dir /${prefix}aw$i created."
+	done
+
+	for i in `seq 1 $2`; do
+    token=$(/root/go/bin/lxd-cloud-cellctl --state-dir /${prefix}aw0 secrets /${prefix}aw$i/server.crt)
+    echo Secret Requested.
+		/root/go/bin/lxd-cloud-cellctl init --token ${token} --state-dir /${prefix}aw$i
+		echo Member $i joined.
+	done
+
+#STATE_DIR=/maw0 lxd-cloud-cellctl sql "insert into certificates (fingerprint, type, name, certificate) values ('maw1','baw1','paw1','caw1')"
+#STATE_DIR=/maw0 lxd-cloud-cellctl sql "insert into certificates (fingerprint, type, name, certificate) values ('maw2','baw2','paw2','caw2')"
+#STATE_DIR=/maw0 lxd-cloud-cellctl sql "insert into certificates (fingerprint, type, name, certificate) values ('maw3','baw3','paw3','caw3')"
+elif [[ $1 == "kill" ]]
+then
+  prefix="$2"
+	ps -ef | grep -i lxd-cloud- | grep -v grep  | awk '{print $2}' | xargs kill -9
+	rm -rf /${prefix}aw*
+
+fi
+}
+
+body $@
