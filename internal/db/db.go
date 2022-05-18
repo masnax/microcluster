@@ -9,6 +9,7 @@ import (
 
 	"github.com/lxc/lxd/lxd/db/query"
 
+	"github.com/canonical/microcluster/internal/db/cluster"
 	"github.com/canonical/microcluster/internal/logger"
 )
 
@@ -31,7 +32,7 @@ func (db *DB) Open(bootstrap bool) error {
 	}
 
 	if bootstrap {
-		_, err = db.db.Exec("") // TODO: Schema.
+		_, err = db.db.Exec(cluster.Schema)
 		if err != nil {
 			return fmt.Errorf("Failed to bootstrap schema: %w", err)
 		}
