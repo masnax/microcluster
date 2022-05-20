@@ -11,7 +11,7 @@ import (
 )
 
 // RunInit initialises the cell/region daemon by either bootstrapping or joining an existing cluster.
-func (c *CmdControl) RunInit(flagBootstrap bool, flagJoin string, cmd *cobra.Command, args []string) error {
+func (c *CmdControl) RunInit(flagBootstrap bool, flagJoin string, flagToken string, cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return cmd.Help()
 	}
@@ -33,6 +33,7 @@ func (c *CmdControl) RunInit(flagBootstrap bool, flagJoin string, cmd *cobra.Com
 	data := types.Control{
 		Bootstrap:   flagBootstrap,
 		JoinAddress: flagJoin,
+		JoinToken:   flagToken,
 	}
 
 	err = d.ControlDaemon(context.Background(), data)
