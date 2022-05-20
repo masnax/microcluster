@@ -45,7 +45,7 @@ type State struct {
 	Remotes func() trust.Remotes
 
 	// Initialize APIs and bootstrap/join database.
-	StartAPI func(bootstrap bool, joinAddress string) error
+	StartAPI func(bootstrap bool, joinAddresses ...string) error
 
 	// When set, the consumer API will only allow GET requests.
 	ReadOnly bool

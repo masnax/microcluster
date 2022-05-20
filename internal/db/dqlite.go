@@ -78,16 +78,16 @@ func (db *DB) Bootstrap(clusterCert *shared.CertInfo, listenAddr api.URL) error 
 }
 
 // Join a dqlite cluster with the address of a member.
-func (db *DB) Join(clusterCert *shared.CertInfo, listenAddr api.URL, joinAddr string) error {
+func (db *DB) Join(clusterCert *shared.CertInfo, listenAddr api.URL, joinAddresses ...string) error {
 	var err error
 	db.clusterCert = clusterCert
 	db.dqlite, err = dqlite.New(db.dir,
-		dqlite.WithCluster([]string{joinAddr}),
+		dqlite.WithCluster(joinAddresses),
 		dqlite.WithAddress(listenAddr.URL.Host),
 		dqlite.WithExternalConn(db.dialFunc(), db.acceptCh),
 		dqlite.WithUnixSocket(os.Getenv(sys.DqliteSocket)))
 	if err != nil {
-		return fmt.Errorf("Failed to join dqlite cluster at address %q: %w", joinAddr, err)
+		return fmt.Errorf("Failed to join dqlite cluster %w", err)
 	}
 
 	return db.Open(false)

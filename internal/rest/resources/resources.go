@@ -26,7 +26,10 @@ var ControlEndpoints = &Resources{
 var InternalEndpoints = &Resources{
 	Path: client.InternalEndpoint,
 	Endpoints: []rest.Endpoint{
+		readyCmd,
 		databaseCmd,
 		peersCmd,
+		secretsCmd,
+		secretCmd,
 	},
 }

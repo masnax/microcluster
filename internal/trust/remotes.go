@@ -2,6 +2,7 @@ package trust
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -54,6 +55,39 @@ func Load(dir string) (Remotes, error) {
 	}
 
 	return remotes, nil
+}
+
+func (r Remotes) Add(dir string, remotes ...Remote) error {
+	for _, remote := range remotes {
+		_, ok := r[remote.Name]
+		if ok {
+			return fmt.Errorf("A remote with name %q already exists", remote.Name)
+		}
+		bytes, err := yaml.Marshal(remote)
+		if err != nil {
+			return fmt.Errorf("Failed to parse migrated addresses to yaml: %w", err)
+		}
+
+		path := filepath.Join(dir, fmt.Sprintf("%s.yaml", remote.Name))
+		_, err = os.Stat(path)
+		if err == nil {
+			return fmt.Errorf("Remote at %q already exists", path)
+		}
+
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("Failed to check remote path %q: %w", path, err)
+		}
+
+		err = os.WriteFile(path, bytes, 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to write %q: %w", path, err)
+		}
+
+		// Add the remote manually so we can use it right away without waiting for inotify.
+		r[remote.Name] = remote
+	}
+
+	return nil
 }
 
 // SelectRandom returns a random remote.

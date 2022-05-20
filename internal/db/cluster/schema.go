@@ -12,10 +12,9 @@ CREATE TABLE certificates (
 
 CREATE TABLE secrets (
   id      INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  certificate_id INTEGER NOT NULL,
-  name    TEXT NOT NULL,
-  secret  TEXT NOT NULL,
-  UNIQUE (name, secret, certificate_id),
-  FOREIGN KEY (certificate_id) REFERENCES certificates (id) ON DELETE CASCADE
+  joiner_cert    TEXT NOT NULL,
+  token  TEXT NOT NULL,
+  UNIQUE (joiner_cert),
+  UNIQUE (token)
 );
 `

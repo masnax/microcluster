@@ -193,11 +193,10 @@ func authenticate(state *state.State, r *http.Request) (bool, error) {
 		return true, nil
 	}
 
-	remotes := state.Remotes()
 	var trustedCerts map[string]x509.Certificate
 	switch r.Host {
 	case state.Address.URL.Host:
-		trustedCerts = remotes.CertificatesNative()
+		trustedCerts = state.Remotes().CertificatesNative()
 	default:
 		return false, fmt.Errorf("Invalid request address %q", r.Host)
 	}
@@ -206,7 +205,7 @@ func authenticate(state *state.State, r *http.Request) (bool, error) {
 		for _, cert := range r.TLS.PeerCertificates {
 			trusted, fingerprint := util.CheckTrustState(*cert, trustedCerts, nil, false)
 			if trusted {
-				remote := remotes.RemoteByCertificateFingerprint(fingerprint)
+				remote := state.Remotes().RemoteByCertificateFingerprint(fingerprint)
 				if remote == nil {
 					// The cert fingerprint can no longer be matched back against what is in the truststore (e.g. file
 					// was deleted), so we are no longer trusted.

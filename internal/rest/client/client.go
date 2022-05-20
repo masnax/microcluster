@@ -94,9 +94,14 @@ func unixHTTPClient(path string) (*http.Client, error) {
 }
 
 func tlsHTTPClient(clientCert *shared.CertInfo, remoteCert *x509.Certificate) (*http.Client, error) {
-	tlsConfig, err := TLSClientConfig(clientCert, remoteCert)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse TLS config: %w", err)
+	var tlsConfig *tls.Config
+	if remoteCert != nil {
+		var err error
+		tlsConfig, err = TLSClientConfig(clientCert, remoteCert)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse TLS config: %w", err)
+		}
+
 	}
 
 	tlsDialContext := func(ctx context.Context, network string, addr string) (net.Conn, error) {

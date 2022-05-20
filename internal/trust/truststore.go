@@ -31,11 +31,6 @@ func Init(watcher *sys.Watcher, onUpdate func(oldRemotes, newRemotes Remotes) er
 		ts.remotesMu.Lock()
 		defer ts.remotesMu.Unlock()
 
-		err = onUpdate(ts.remotes, remotes)
-		if err != nil {
-			return err
-		}
-
 		ts.remotes = remotes
 
 		return nil
@@ -58,17 +53,12 @@ func Init(watcher *sys.Watcher, onUpdate func(oldRemotes, newRemotes Remotes) er
 	return ts, nil
 }
 
-// Remotes returns a read-only, thread-safe list of the remotes in the truststore, as watched by fsnotify.
+// Remotes returns a thread-safe list of the remotes in the truststore, as watched by fsnotify.
 func (ts *Store) Remotes() Remotes {
 	ts.remotesMu.RLock()
 	defer ts.remotesMu.RUnlock()
 
-	remotes := make(Remotes, len(ts.remotes))
-	for remoteName, remote := range ts.remotes {
-		remotes[remoteName] = remote
-	}
-
-	return remotes
+	return ts.remotes
 }
 
 // Refresh reloads the truststore and runs any associated hooks.

@@ -4,4 +4,5 @@ package types
 type Control struct {
 	Bootstrap   bool   `json:"bootstrap" yaml:"bootstrap"`
 	JoinAddress string `json:"join_address" yaml:"join_address"`
+	JoinToken   string `json:"join_token" yaml:"join_token"`
 }

@@ -38,6 +38,11 @@ func (db *DB) Open(bootstrap bool) error {
 		}
 	}
 
+	err = cluster.PrepareStmts(db.db, false)
+	if err != nil {
+		return err
+	}
+
 	db.openCanceller.Cancel()
 
 	return nil

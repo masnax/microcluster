@@ -91,6 +91,8 @@ func (d *Daemon) init() error {
 		return err
 	}
 
+	fmt.Println(d.serverCert.Fingerprint())
+
 	err = d.initStore()
 	if err != nil {
 		return fmt.Errorf("Failed to initialize trust store: %w", err)
@@ -224,14 +226,14 @@ func (d *Daemon) validateConfig(addr string, stateDir string) error {
 
 // StartAPI starts up the admin and consumer APIs, and generates a cluster cert
 // if we are bootstrapping the first node.
-func (d *Daemon) StartAPI(bootstrap bool, joinAddress string) error {
+func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 	var err error
 	d.clusterCert, err = util.LoadClusterCert(d.os.StateDir)
 	if err != nil {
 		return err
 	}
 
-	server := d.initServer(nil, resources.InternalEndpoints)
+	server := d.initServer(resources.InternalEndpoints)
 	network := endpoints.NewNetwork(endpoints.EndpointNetwork, server, d.Address, d.clusterCert)
 
 	err = d.endpoints.Add(network)
@@ -250,8 +252,8 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddress string) error {
 		if err != nil {
 			return err
 		}
-	} else if joinAddress != "" {
-		err = d.db.Join(d.ClusterCert(), d.Address, joinAddress)
+	} else if len(joinAddresses) != 0 {
+		err = d.db.Join(d.ClusterCert(), d.Address, joinAddresses...)
 		if err != nil {
 			return err
 		}

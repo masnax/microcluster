@@ -15,103 +15,36 @@ import (
 var _ = api.ServerEnvironment{}
 
 var secretObjects = RegisterStmt(`
-SELECT secrets.id, certificates.fingerprint AS certificate, secrets.token, secrets.name
-  FROM secrets JOIN certificates ON secrets.certificate_id = certificates.id
-  ORDER BY secrets.name
+SELECT secrets.id, secrets.token, secrets.joiner_cert
+  FROM secrets
+  ORDER BY secrets.joiner_cert
 `)
 
-var secretObjectsByName = RegisterStmt(`
-SELECT secrets.id, certificates.fingerprint AS certificate, secrets.token, secrets.name
-  FROM secrets JOIN certificates ON secrets.certificate_id = certificates.id
-  WHERE secrets.name = ? ORDER BY secrets.name
-`)
-
-var secretObjectsByCertificate = RegisterStmt(`
-SELECT secrets.id, certificates.fingerprint AS certificate, secrets.token, secrets.name
-  FROM secrets JOIN certificates ON secrets.certificate_id = certificates.id
-  WHERE certificate = ? ORDER BY secrets.name
-`)
-
-var secretObjectsByCertificateAndName = RegisterStmt(`
-SELECT secrets.id, certificates.fingerprint AS certificate, secrets.token, secrets.name
-  FROM secrets JOIN certificates ON secrets.certificate_id = certificates.id
-  WHERE certificate = ? AND secrets.name = ? ORDER BY secrets.name
+var secretObjectsByJoinerCert = RegisterStmt(`
+SELECT secrets.id, secrets.token, secrets.joiner_cert
+  FROM secrets
+  WHERE secrets.joiner_cert = ? ORDER BY secrets.joiner_cert
 `)
 
 var secretID = RegisterStmt(`
 SELECT secrets.id FROM secrets
-  WHERE secrets.name = ?
+  WHERE secrets.joiner_cert = ?
 `)
 
 var secretCreate = RegisterStmt(`
-INSERT INTO secrets (certificate_id, token, name)
-  VALUES ((SELECT certificates.id FROM certificates WHERE certificates.fingerprint = ?), ?, ?)
+INSERT INTO secrets (token, joiner_cert)
+  VALUES (?, ?)
 `)
 
-var secretDeleteByName = RegisterStmt(`
-DELETE FROM secrets WHERE name = ?
+var secretDeleteByJoinerCert = RegisterStmt(`
+DELETE FROM secrets WHERE joiner_cert = ?
 `)
-
-// GetSecrets returns all available secrets.
-// generator: secret GetMany
-func GetSecrets(ctx context.Context, tx *sql.Tx, filter SecretFilter) ([]Secret, error) {
-	var err error
-
-	// Result slice.
-	objects := make([]Secret, 0)
-
-	// Pick the prepared statement and arguments to use based on active criteria.
-	var sqlStmt *sql.Stmt
-	var args []any
-
-	if filter.Certificate != nil && filter.Name != nil && filter.ID == nil && filter.Token == nil {
-		sqlStmt = stmt(tx, secretObjectsByCertificateAndName)
-		args = []any{
-			filter.Certificate,
-			filter.Name,
-		}
-	} else if filter.Name != nil && filter.ID == nil && filter.Certificate == nil && filter.Token == nil {
-		sqlStmt = stmt(tx, secretObjectsByName)
-		args = []any{
-			filter.Name,
-		}
-	} else if filter.Certificate != nil && filter.ID == nil && filter.Token == nil && filter.Name == nil {
-		sqlStmt = stmt(tx, secretObjectsByCertificate)
-		args = []any{
-			filter.Certificate,
-		}
-	} else if filter.ID == nil && filter.Certificate == nil && filter.Token == nil && filter.Name == nil {
-		sqlStmt = stmt(tx, secretObjects)
-		args = []any{}
-	} else {
-		return nil, fmt.Errorf("No statement exists for the given Filter")
-	}
-
-	// Dest function for scanning a row.
-	dest := func(i int) []any {
-		objects = append(objects, Secret{})
-		return []any{
-			&objects[i].ID,
-			&objects[i].Certificate,
-			&objects[i].Token,
-			&objects[i].Name,
-		}
-	}
-
-	// Select.
-	err = query.SelectObjects(sqlStmt, dest, args...)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch from \"secrets\" table: %w", err)
-	}
-
-	return objects, nil
-}
 
 // GetSecretID return the ID of the secret with the given key.
 // generator: secret ID
-func GetSecretID(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
+func GetSecretID(ctx context.Context, tx *sql.Tx, joinerCert string) (int64, error) {
 	stmt := stmt(tx, secretID)
-	rows, err := stmt.Query(name)
+	rows, err := stmt.Query(joinerCert)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to get \"secrets\" ID: %w", err)
 	}
@@ -141,8 +74,8 @@ func GetSecretID(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
 
 // SecretExists checks if a secret with the given key exists.
 // generator: secret Exists
-func SecretExists(ctx context.Context, tx *sql.Tx, name string) (bool, error) {
-	_, err := GetSecretID(ctx, tx, name)
+func SecretExists(ctx context.Context, tx *sql.Tx, joinerCert string) (bool, error) {
+	_, err := GetSecretID(ctx, tx, joinerCert)
 	if err != nil {
 		if api.StatusErrorCheck(err, http.StatusNotFound) {
 			return false, nil
@@ -153,11 +86,75 @@ func SecretExists(ctx context.Context, tx *sql.Tx, name string) (bool, error) {
 	return true, nil
 }
 
+// GetSecret returns the secret with the given key.
+// generator: secret GetOne
+func GetSecret(ctx context.Context, tx *sql.Tx, joinerCert string) (*Secret, error) {
+	filter := SecretFilter{}
+	filter.JoinerCert = &joinerCert
+
+	objects, err := GetSecrets(ctx, tx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to fetch from \"secrets\" table: %w", err)
+	}
+
+	switch len(objects) {
+	case 0:
+		return nil, api.StatusErrorf(http.StatusNotFound, "Secret not found")
+	case 1:
+		return &objects[0], nil
+	default:
+		return nil, fmt.Errorf("More than one \"secrets\" entry matches")
+	}
+}
+
+// GetSecrets returns all available secrets.
+// generator: secret GetMany
+func GetSecrets(ctx context.Context, tx *sql.Tx, filter SecretFilter) ([]Secret, error) {
+	var err error
+
+	// Result slice.
+	objects := make([]Secret, 0)
+
+	// Pick the prepared statement and arguments to use based on active criteria.
+	var sqlStmt *sql.Stmt
+	var args []any
+
+	if filter.JoinerCert != nil && filter.ID == nil && filter.Token == nil {
+		sqlStmt = stmt(tx, secretObjectsByJoinerCert)
+		args = []any{
+			filter.JoinerCert,
+		}
+	} else if filter.ID == nil && filter.Token == nil && filter.JoinerCert == nil {
+		sqlStmt = stmt(tx, secretObjects)
+		args = []any{}
+	} else {
+		return nil, fmt.Errorf("No statement exists for the given Filter")
+	}
+
+	// Dest function for scanning a row.
+	dest := func(i int) []any {
+		objects = append(objects, Secret{})
+		return []any{
+			&objects[i].ID,
+			&objects[i].Token,
+			&objects[i].JoinerCert,
+		}
+	}
+
+	// Select.
+	err = query.SelectObjects(sqlStmt, dest, args...)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to fetch from \"secrets\" table: %w", err)
+	}
+
+	return objects, nil
+}
+
 // CreateSecret adds a new secret to the database.
 // generator: secret Create
 func CreateSecret(ctx context.Context, tx *sql.Tx, object Secret) (int64, error) {
 	// Check if a secret with the same key exists.
-	exists, err := SecretExists(ctx, tx, object.Name)
+	exists, err := SecretExists(ctx, tx, object.JoinerCert)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to check for duplicates: %w", err)
 	}
@@ -166,12 +163,11 @@ func CreateSecret(ctx context.Context, tx *sql.Tx, object Secret) (int64, error)
 		return -1, api.StatusErrorf(http.StatusConflict, "This \"secrets\" entry already exists")
 	}
 
-	args := make([]any, 3)
+	args := make([]any, 2)
 
 	// Populate the statement arguments.
-	args[0] = object.Certificate
-	args[1] = object.Token
-	args[2] = object.Name
+	args[0] = object.Token
+	args[1] = object.JoinerCert
 
 	// Prepared statement to use.
 	stmt := stmt(tx, secretCreate)
@@ -191,10 +187,10 @@ func CreateSecret(ctx context.Context, tx *sql.Tx, object Secret) (int64, error)
 }
 
 // DeleteSecret deletes the secret matching the given key parameters.
-// generator: secret DeleteOne-by-Name
-func DeleteSecret(ctx context.Context, tx *sql.Tx, name string) error {
-	stmt := stmt(tx, secretDeleteByName)
-	result, err := stmt.Exec(name)
+// generator: secret DeleteOne-by-JoinerCert
+func DeleteSecret(ctx context.Context, tx *sql.Tx, joinerCert string) error {
+	stmt := stmt(tx, secretDeleteByJoinerCert)
+	result, err := stmt.Exec(joinerCert)
 	if err != nil {
 		return fmt.Errorf("Delete \"secrets\": %w", err)
 	}
