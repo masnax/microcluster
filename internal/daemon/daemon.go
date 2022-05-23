@@ -20,6 +20,7 @@ import (
 	"github.com/canonical/microcluster/internal/logger"
 	"github.com/canonical/microcluster/internal/rest"
 	"github.com/canonical/microcluster/internal/rest/resources"
+	"github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
 	"github.com/canonical/microcluster/internal/sys"
 	"github.com/canonical/microcluster/internal/trust"
@@ -227,6 +228,34 @@ func (d *Daemon) validateConfig(addr string, stateDir string) error {
 // StartAPI starts up the admin and consumer APIs, and generates a cluster cert
 // if we are bootstrapping the first node.
 func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
+	if bootstrap {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return fmt.Errorf("Failed to retrieve local hostname when bootstrapping API: %w", err)
+		}
+
+		addr, err := types.ParseAddrPort(d.Address.URL.Host)
+		if err != nil {
+			return fmt.Errorf("Failed to parse listen address when bootstrapping API: %w", err)
+		}
+
+		serverCert, err := d.serverCert.PublicKeyX509()
+		if err != nil {
+			return fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err)
+		}
+
+		localNode := trust.Remote{
+			Name:        hostname,
+			Addresses:   types.AddrPorts{addr},
+			Certificate: types.X509Certificate{Certificate: serverCert},
+		}
+
+		err = d.trustStore.Remotes().Add(d.os.TrustDir, localNode)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize local remote entry")
+		}
+	}
+
 	var err error
 	d.clusterCert, err = util.LoadClusterCert(d.os.StateDir)
 	if err != nil {
