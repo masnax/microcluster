@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/lxd/util"
@@ -31,27 +32,23 @@ func controlPost(state *state.State, r *http.Request) response.Response {
 	}
 
 	if req.Bootstrap && req.JoinAddress != "" {
-		return response.SmartError(fmt.Errorf("Invalid options"))
+		return response.SmartError(fmt.Errorf("Invalid options - received join address and bootstrap flag"))
+	}
+
+	if req.Bootstrap && req.JoinToken != "" {
+		return response.SmartError(fmt.Errorf("Invalid options - received join token and bootstrap flag"))
+	}
+
+	if req.JoinToken != "" && req.JoinAddress != "" {
+		return response.SmartError(fmt.Errorf("Invalid options - received join token without join address"))
 	}
 
 	if req.JoinToken != "" {
-		if req.Bootstrap {
-			return response.SmartError(fmt.Errorf("Invalid options - received join token and bootstrap flag"))
-		}
-
-		if req.JoinAddress == "" {
-			return response.SmartError(fmt.Errorf("Invalid options - received join token without join address"))
-		}
-
 		return joinWithToken(state, req)
 	}
 
 	if !req.Bootstrap && req.JoinAddress == "" {
 		return response.SmartError(fmt.Errorf("Invalid options - expected to bootstrap or be given a join address"))
-	}
-
-	if len(state.Remotes()) == 0 {
-		return response.BadRequest(fmt.Errorf("Cannot initialise - truststore must contain peers"))
 	}
 
 	err = state.StartAPI(req.Bootstrap, req.JoinAddress)
@@ -84,7 +81,7 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 		return response.SmartError(err)
 	}
 
-	peers := make([]trust.Remote, 0, len(secret.Peers))
+	peers := make([]trust.Remote, 0, len(secret.Peers)+1)
 	for _, peer := range secret.Peers {
 		remote := trust.Remote{
 			Name:        peer.Name,
@@ -95,6 +92,23 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 		peers = append(peers, remote)
 	}
 
+	addr, err := types.ParseAddrPort(state.Address.URL.Host)
+	if err != nil {
+		return response.SmartError(fmt.Errorf("Failed to parse listen address when bootstrapping API: %w", err))
+	}
+
+	serverCert, err := state.ServerCert().PublicKeyX509()
+	if err != nil {
+		return response.SmartError(fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err))
+	}
+
+	localPeer := trust.Remote{
+		Name:        filepath.Base(state.OS.StateDir),
+		Addresses:   types.AddrPorts{addr},
+		Certificate: types.X509Certificate{Certificate: serverCert},
+	}
+
+	peers = append(peers, localPeer)
 	err = state.Remotes().Add(state.OS.TrustDir, peers...)
 	if err != nil {
 		return response.SmartError(err)

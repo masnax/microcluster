@@ -26,8 +26,8 @@ func (c *CmdControl) RunInit(flagBootstrap bool, flagJoin string, flagToken stri
 		return err
 	}
 
-	if flagBootstrap && flagJoin != "" {
-		return fmt.Errorf("Option must be one of bootstrap or join")
+	if flagBootstrap && flagJoin != "" || flagBootstrap && flagToken != "" || flagJoin != "" && flagToken != "" {
+		return fmt.Errorf("Option must be one of bootstrap, join, or token")
 	}
 
 	data := types.Control{

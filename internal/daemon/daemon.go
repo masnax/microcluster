@@ -229,11 +229,6 @@ func (d *Daemon) validateConfig(addr string, stateDir string) error {
 // if we are bootstrapping the first node.
 func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 	if bootstrap {
-		hostname, err := os.Hostname()
-		if err != nil {
-			return fmt.Errorf("Failed to retrieve local hostname when bootstrapping API: %w", err)
-		}
-
 		addr, err := types.ParseAddrPort(d.Address.URL.Host)
 		if err != nil {
 			return fmt.Errorf("Failed to parse listen address when bootstrapping API: %w", err)
@@ -245,7 +240,7 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 		}
 
 		localNode := trust.Remote{
-			Name:        hostname,
+			Name:        filepath.Base(d.os.StateDir),
 			Addresses:   types.AddrPorts{addr},
 			Certificate: types.X509Certificate{Certificate: serverCert},
 		}
