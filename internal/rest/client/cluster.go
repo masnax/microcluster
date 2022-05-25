@@ -4,6 +4,10 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"time"
+
+	"github.com/canonical/microcluster/internal/rest/types"
+	"github.com/lxc/lxd/shared/api"
 )
 
 // Cluster is a list of clients belonging to a cluster.
@@ -53,4 +57,20 @@ func (c Cluster) Query(ctx context.Context, concurrent bool, query func(context.
 	}
 
 	return nil
+}
+
+// ControlDaemon posts control data to the cell/region daemon.
+func (c *Client) AddClusterMember(ctx context.Context, args types.Cluster) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.QueryStruct(queryCtx, "POST", InternalEndpoint, api.NewURL().Path("cluster"), args, nil)
+}
+
+// ControlDaemon posts control data to the cell/region daemon.
+func (c *Client) InternalAddClusterMember(ctx context.Context, args types.Cluster) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.QueryStruct(queryCtx, "POST", InternalEndpoint, api.NewURL().Path("internal", "cluster"), args, nil)
 }

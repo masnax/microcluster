@@ -22,7 +22,7 @@ func (c *CmdControl) RunPeers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	d, err := client.New(os.ControlSocket(), nil, nil)
+	d, err := client.New(os.ControlSocket(), nil, nil, false)
 	if err != nil {
 		return err
 	}

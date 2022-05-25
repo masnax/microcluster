@@ -42,7 +42,7 @@ func (c *CmdControl) RunSQL(cmd *cobra.Command, args []string) error {
 		query = string(bytes)
 	}
 
-	d, err := client.New(dir.ControlSocket(), nil, nil)
+	d, err := client.New(dir.ControlSocket(), nil, nil, false)
 	if err != nil {
 		return err
 	}

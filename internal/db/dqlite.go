@@ -172,7 +172,7 @@ func dqliteNetworkDial(ctx context.Context, addr string, db *DB) (net.Conn, erro
 		Host:       addr,
 	}
 
-	path := fmt.Sprintf("https://%s%s", addr, "/internal/database")
+	path := fmt.Sprintf("https://%s%s", addr, "/restricted/database")
 	request.URL, err = url.Parse(path)
 	if err != nil {
 		return nil, err

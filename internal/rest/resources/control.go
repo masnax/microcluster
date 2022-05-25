@@ -65,23 +65,27 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 		return response.SmartError(err)
 	}
 
+	// Get a client to the target address.
 	url := api.NewURL().Scheme("https").Host(token.JoinAddress.String())
-	d, err := client.New(*url, state.ServerCert(), token.ClusterCert.Certificate)
+	d, err := client.New(*url, state.ServerCert(), token.ClusterCert.Certificate, false)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
+	// Submit the token string to obtain cluster credentials.
 	secret, err := d.SubmitToken(context.Background(), state.ServerCert().Fingerprint(), token.Token)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
+	fmt.Println("TOKEN SUBMITTED")
 	err = util.WriteCert(state.OS.StateDir, "cluster", []byte(secret.ClusterCert.String()), []byte(secret.ClusterKey), nil)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
-	peers := make([]trust.Remote, 0, len(secret.Peers)+1)
+	joinAddrs := types.AddrPorts{}
+	peers := make([]trust.Remote, 0, len(secret.Peers))
 	for _, peer := range secret.Peers {
 		remote := trust.Remote{
 			Name:        peer.Name,
@@ -89,6 +93,7 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 			Addresses:   peer.Addresses,
 		}
 
+		joinAddrs = append(joinAddrs, peer.Addresses...)
 		peers = append(peers, remote)
 	}
 
@@ -102,6 +107,7 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 		return response.SmartError(fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err))
 	}
 
+	// Add the local node to the list of peers.
 	localPeer := trust.Remote{
 		Name:        filepath.Base(state.OS.StateDir),
 		Addresses:   types.AddrPorts{addr},
@@ -114,7 +120,14 @@ func joinWithToken(state *state.State, req *types.Control) response.Response {
 		return response.SmartError(err)
 	}
 
-	err = state.StartAPI(false, state.Remotes().SelectRandom().Addresses.Strings()...)
+	// Prepare the cluster for the incoming dqlite request by creating trust store entries.
+	err = d.AddClusterMember(context.Background(), types.Cluster{Name: localPeer.Name, Addresses: localPeer.Addresses, Certificate: localPeer.Certificate})
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	// Start the HTTPS listeners and join Dqlite.
+	err = state.StartAPI(false, joinAddrs.Strings()...)
 	if err != nil {
 		return response.SmartError(err)
 	}

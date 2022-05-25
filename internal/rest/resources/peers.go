@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/microcluster/internal/logger"
 	"github.com/canonical/microcluster/internal/rest"
-	"github.com/canonical/microcluster/internal/rest/access"
 	"github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
@@ -19,7 +18,7 @@ import (
 var peersCmd = rest.Endpoint{
 	Path: "peers",
 
-	Get: rest.EndpointAction{Handler: peersGet, AccessHandler: access.AllowAuthenticated},
+	Get: rest.EndpointAction{Handler: peersGet, AllowUntrusted: true},
 }
 
 func peersGet(state *state.State, r *http.Request) response.Response {
@@ -75,7 +74,7 @@ func peersGet(state *state.State, r *http.Request) response.Response {
 				return response.SmartError(err)
 			}
 
-			d, err := client.New(addr, state.ServerCert(), peerCert)
+			d, err := client.New(addr, state.ServerCert(), peerCert, false)
 			if err != nil {
 				return response.SmartError(fmt.Errorf("Failed to create HTTPS client for peer with address %q: %w", addr.String(), err))
 			}

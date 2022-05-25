@@ -47,7 +47,7 @@ func (c *CmdControl) RunWaitready(flagTimeout int, cmd *cobra.Command, args []st
 				continue
 			}
 
-			d, err := client.New(os.ControlSocket(), nil, nil)
+			d, err := client.New(os.ControlSocket(), nil, nil, false)
 			if err != nil {
 				errLast = err
 				if doLog {

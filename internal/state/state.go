@@ -2,12 +2,15 @@ package state
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/lxc/lxd/lxd/cluster/request"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcluster/internal/db"
 	"github.com/canonical/microcluster/internal/endpoints"
+	"github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/sys"
 	"github.com/canonical/microcluster/internal/trust"
 )
@@ -49,4 +52,40 @@ type State struct {
 
 	// When set, the consumer API will only allow GET requests.
 	ReadOnly bool
+}
+
+func (s *State) Cluster(r *http.Request) (client.Cluster, error) {
+	r.Header.Set("User-Agent", request.UserAgentNotifier)
+
+	d, err := client.New(s.OS.ControlSocket(), nil, nil, false)
+	if err != nil {
+		return nil, err
+	}
+
+	peers, err := d.Peers(s.Context, client.ControlEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	clients := make(client.Cluster, 0, len(peers)-1)
+	for _, peer := range peers {
+		if shared.StringInSlice(s.Address.URL.Host, peer.Addresses.Strings()) {
+			continue
+		}
+
+		publicKey, err := s.ClusterCert().PublicKeyX509()
+		if err != nil {
+			return nil, err
+		}
+
+		url := api.NewURL().Scheme("https").Host(peer.Addresses.SelectRandom().String())
+		client, err := client.New(*url, s.ClusterCert(), publicKey, true)
+		if err != nil {
+			return nil, err
+		}
+
+		clients = append(clients, *client)
+	}
+
+	return clients, nil
 }

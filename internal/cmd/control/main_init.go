@@ -21,7 +21,7 @@ func (c *CmdControl) RunInit(flagBootstrap bool, flagJoin string, flagToken stri
 		return err
 	}
 
-	d, err := client.New(os.ControlSocket(), nil, nil)
+	d, err := client.New(os.ControlSocket(), nil, nil, false)
 	if err != nil {
 		return err
 	}

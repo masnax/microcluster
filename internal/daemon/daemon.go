@@ -228,30 +228,29 @@ func (d *Daemon) validateConfig(addr string, stateDir string) error {
 // StartAPI starts up the admin and consumer APIs, and generates a cluster cert
 // if we are bootstrapping the first node.
 func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
+	addr, err := types.ParseAddrPort(d.Address.URL.Host)
+	if err != nil {
+		return fmt.Errorf("Failed to parse listen address when bootstrapping API: %w", err)
+	}
+
+	serverCert, err := d.serverCert.PublicKeyX509()
+	if err != nil {
+		return fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err)
+	}
+
+	localNode := trust.Remote{
+		Name:        filepath.Base(d.os.StateDir),
+		Addresses:   types.AddrPorts{addr},
+		Certificate: types.X509Certificate{Certificate: serverCert},
+	}
+
 	if bootstrap {
-		addr, err := types.ParseAddrPort(d.Address.URL.Host)
-		if err != nil {
-			return fmt.Errorf("Failed to parse listen address when bootstrapping API: %w", err)
-		}
-
-		serverCert, err := d.serverCert.PublicKeyX509()
-		if err != nil {
-			return fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err)
-		}
-
-		localNode := trust.Remote{
-			Name:        filepath.Base(d.os.StateDir),
-			Addresses:   types.AddrPorts{addr},
-			Certificate: types.X509Certificate{Certificate: serverCert},
-		}
-
 		err = d.trustStore.Remotes().Add(d.os.TrustDir, localNode)
 		if err != nil {
-			return fmt.Errorf("Failed to initialize local remote entry")
+			return fmt.Errorf("Failed to initialize local remote entry: %w", err)
 		}
 	}
 
-	var err error
 	d.clusterCert, err = util.LoadClusterCert(d.os.StateDir)
 	if err != nil {
 		return err

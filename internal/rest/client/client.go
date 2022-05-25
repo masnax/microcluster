@@ -10,11 +10,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	clusterRequest "github.com/lxc/lxd/lxd/cluster/request"
+	"github.com/lxc/lxd/lxd/request"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/tcp"
@@ -26,8 +29,11 @@ import (
 type EndpointType string
 
 const (
-	// InternalEndpoint - to be used for database and horizontal, server-to-server requests.
-	InternalEndpoint EndpointType = "internal"
+	// PublicEndpoint - all endpoints available with out authentication.
+	PublicEndpoint EndpointType = "public"
+
+	// InternalEndpoint - all endpoints restricted to trusted servers.
+	InternalEndpoint EndpointType = "restricted"
 
 	// ControlEndpoint - to be used by the cell/region command line tools.
 	ControlEndpoint EndpointType = "control"
@@ -40,7 +46,7 @@ type Client struct {
 }
 
 // New returns a new client configured with the given url and certificates.
-func New(url api.URL, clientCert *shared.CertInfo, remoteCert *x509.Certificate) (*Client, error) {
+func New(url api.URL, clientCert *shared.CertInfo, remoteCert *x509.Certificate, forwarding bool) (*Client, error) {
 	var err error
 	var httpClient *http.Client
 
@@ -49,7 +55,12 @@ func New(url api.URL, clientCert *shared.CertInfo, remoteCert *x509.Certificate)
 		httpClient, err = unixHTTPClient(shared.HostPath(url.Hostname()))
 		url.Host(filepath.Base(url.Hostname()))
 	} else {
-		httpClient, err = tlsHTTPClient(clientCert, remoteCert)
+		proxy := shared.ProxyFromEnvironment
+		if forwarding {
+			proxy = forwardingProxy
+		}
+
+		httpClient, err = tlsHTTPClient(clientCert, remoteCert, proxy)
 	}
 
 	if err != nil {
@@ -93,7 +104,7 @@ func unixHTTPClient(path string) (*http.Client, error) {
 	return client, nil
 }
 
-func tlsHTTPClient(clientCert *shared.CertInfo, remoteCert *x509.Certificate) (*http.Client, error) {
+func tlsHTTPClient(clientCert *shared.CertInfo, remoteCert *x509.Certificate, proxy func(req *http.Request) (*url.URL, error)) (*http.Client, error) {
 	var tlsConfig *tls.Config
 	if remoteCert != nil {
 		var err error
@@ -140,7 +151,7 @@ func tlsHTTPClient(clientCert *shared.CertInfo, remoteCert *x509.Certificate) (*
 
 	transport := &http.Transport{
 		DialTLSContext: tlsDialContext,
-		Proxy:          shared.ProxyFromEnvironment,
+		Proxy:          proxy,
 	}
 
 	// Define the http client
@@ -155,6 +166,29 @@ func tlsHTTPClient(clientCert *shared.CertInfo, remoteCert *x509.Certificate) (*
 	}
 
 	return client, nil
+}
+
+func forwardingProxy(r *http.Request) (*url.URL, error) {
+	r.Header.Set("User-Agent", clusterRequest.UserAgentNotifier)
+
+	ctx := r.Context()
+
+	val, ok := ctx.Value(request.CtxUsername).(string)
+	if ok {
+		r.Header.Add(request.HeaderForwardedUsername, val)
+	}
+	val, ok = ctx.Value(request.CtxProtocol).(string)
+	if ok {
+		r.Header.Add(request.HeaderForwardedProtocol, val)
+	}
+
+	r.Header.Add(request.HeaderForwardedAddress, r.RemoteAddr)
+
+	return shared.ProxyFromEnvironment(r)
+}
+
+func IsForwardedRequest(r *http.Request) bool {
+	return r.Header.Get("User-Agent") == clusterRequest.UserAgentNotifier
 }
 
 func (c *Client) rawQuery(ctx context.Context, method string, url *api.URL, data any) (*api.Response, error) {

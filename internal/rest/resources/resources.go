@@ -19,6 +19,18 @@ var ControlEndpoints = &Resources{
 		sqlCmd,
 		readyCmd,
 		peersCmd,
+		secretsCmd,
+		secretCmd,
+		clusterCmd,
+	},
+}
+
+// PublicEndpoints are the /public API endpoints available without authentication.
+var PublicEndpoints = &Resources{
+	Path: client.PublicEndpoint,
+	Endpoints: []rest.Endpoint{
+		clusterCmd,
+		secretCmd,
 	},
 }
 
@@ -31,5 +43,6 @@ var InternalEndpoints = &Resources{
 		peersCmd,
 		secretsCmd,
 		secretCmd,
+		clusterCmd,
 	},
 }

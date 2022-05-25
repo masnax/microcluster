@@ -44,6 +44,9 @@ func main() {
 	var cmdSQL = cmdSQL{common: &commonCmd}
 	app.AddCommand(cmdSQL.Command())
 
+	var cmdSecrets = cmdSecrets{common: &commonCmd}
+	app.AddCommand(cmdSecrets.Command())
+
 	var cmdWaitready = cmdWaitready{common: &commonCmd}
 	app.AddCommand(cmdWaitready.Command())
 
