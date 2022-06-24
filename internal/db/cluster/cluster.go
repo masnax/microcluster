@@ -1,10 +1,12 @@
 package cluster
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/canonical/microcluster/internal/rest/types"
+	"github.com/lxc/lxd/lxd/db/query"
 )
 
 //go:generate -command mapper lxd-generate db mapper -t cluster_members.mapper.go
@@ -63,4 +65,34 @@ func (c ClusterMember) ToAPI() (*types.ClusterMember, error) {
 		LastHeartbeat: c.Heartbeat,
 		Status:        types.MemberUnreachable,
 	}, nil
+}
+
+// UpdateClusterMemberSchemaVersion sets the schema version for the cluster member with the given address.
+// This helper is non-generated so as to be accessible without prepared statements, as our schema might have changed.
+func UpdateClusterMemberSchemaVersion(tx *sql.Tx, version int, address string) error {
+	stmt := "UPDATE cluster_members SET schema=? WHERE address=?"
+	result, err := tx.Exec(stmt, version, address)
+	if err != nil {
+		return err
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return fmt.Errorf("updated %d rows instead of 1", n)
+	}
+
+	return nil
+}
+
+func GetClusterMemberSchemaVersions(tx *sql.Tx) ([]int, error) {
+	sql := "SELECT schema FROM cluster_members WHERE NOT role='pending'"
+	versions, err := query.SelectIntegers(tx, sql)
+	if err != nil {
+		return nil, err
+	}
+
+	return versions, nil
 }

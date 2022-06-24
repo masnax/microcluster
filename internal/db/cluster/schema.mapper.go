@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 
 	"github.com/lxc/lxd/lxd/db/query"
 	"github.com/lxc/lxd/shared/api"
@@ -17,6 +18,16 @@ var schemaObjects = RegisterStmt(`
 SELECT schemas.id, schemas.version, schemas.updated_at
   FROM schemas
   ORDER BY schemas.version
+`)
+
+var schemaID = RegisterStmt(`
+SELECT schemas.id FROM schemas
+  WHERE schemas.version = ?
+`)
+
+var schemaCreate = RegisterStmt(`
+INSERT INTO schemas (version, updated_at)
+  VALUES (?, ?)
 `)
 
 // GetSchemas returns all available schemas.
@@ -55,4 +66,107 @@ func GetSchemas(ctx context.Context, tx *sql.Tx, filter SchemaFilter) ([]Schema,
 	}
 
 	return objects, nil
+}
+
+// GetSchema returns the schema with the given key.
+// generator: schema GetOne
+func GetSchema(ctx context.Context, tx *sql.Tx, version int) (*Schema, error) {
+	filter := SchemaFilter{}
+	filter.Version = &version
+
+	objects, err := GetSchemas(ctx, tx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to fetch from \"schemas\" table: %w", err)
+	}
+
+	switch len(objects) {
+	case 0:
+		return nil, api.StatusErrorf(http.StatusNotFound, "Schema not found")
+	case 1:
+		return &objects[0], nil
+	default:
+		return nil, fmt.Errorf("More than one \"schemas\" entry matches")
+	}
+}
+
+// GetSchemaID return the ID of the schema with the given key.
+// generator: schema ID
+func GetSchemaID(ctx context.Context, tx *sql.Tx, version int) (int64, error) {
+	stmt := stmt(tx, schemaID)
+	rows, err := stmt.Query(version)
+	if err != nil {
+		return -1, fmt.Errorf("Failed to get \"schemas\" ID: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	// Ensure we read one and only one row.
+	if !rows.Next() {
+		return -1, api.StatusErrorf(http.StatusNotFound, "Schema not found")
+	}
+	var id int64
+	err = rows.Scan(&id)
+	if err != nil {
+		return -1, fmt.Errorf("Failed to scan ID: %w", err)
+	}
+
+	if rows.Next() {
+		return -1, fmt.Errorf("More than one row returned")
+	}
+	err = rows.Err()
+	if err != nil {
+		return -1, fmt.Errorf("Result set failure: %w", err)
+	}
+
+	return id, nil
+}
+
+// SchemaExists checks if a schema with the given key exists.
+// generator: schema Exists
+func SchemaExists(ctx context.Context, tx *sql.Tx, version int) (bool, error) {
+	_, err := GetSchemaID(ctx, tx, version)
+	if err != nil {
+		if api.StatusErrorCheck(err, http.StatusNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
+// CreateSchema adds a new schema to the database.
+// generator: schema Create
+func CreateSchema(ctx context.Context, tx *sql.Tx, object Schema) (int64, error) {
+	// Check if a schema with the same key exists.
+	exists, err := SchemaExists(ctx, tx, object.Version)
+	if err != nil {
+		return -1, fmt.Errorf("Failed to check for duplicates: %w", err)
+	}
+
+	if exists {
+		return -1, api.StatusErrorf(http.StatusConflict, "This \"schemas\" entry already exists")
+	}
+
+	args := make([]any, 2)
+
+	// Populate the statement arguments.
+	args[0] = object.Version
+	args[1] = object.UpdatedAt
+
+	// Prepared statement to use.
+	stmt := stmt(tx, schemaCreate)
+
+	// Execute the statement.
+	result, err := stmt.Exec(args...)
+	if err != nil {
+		return -1, fmt.Errorf("Failed to create \"schemas\" entry: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return -1, fmt.Errorf("Failed to fetch \"schemas\" entry ID: %w", err)
+	}
+
+	return id, nil
 }

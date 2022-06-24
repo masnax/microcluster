@@ -18,6 +18,7 @@ import (
 
 	"github.com/canonical/microcluster/internal/db"
 	"github.com/canonical/microcluster/internal/db/cluster"
+	"github.com/canonical/microcluster/internal/db/update"
 	"github.com/canonical/microcluster/internal/endpoints"
 	"github.com/canonical/microcluster/internal/logger"
 	"github.com/canonical/microcluster/internal/rest"
@@ -281,7 +282,7 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 				Name:        localNode.Name,
 				Address:     localNode.Address.String(),
 				Certificate: localNode.Certificate.String(),
-				Schema:      0,
+				Schema:      update.Schema().Version(),
 				Heartbeat:   time.Time{},
 				Role:        "pending",
 			}
@@ -290,6 +291,9 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 
 			return err
 		})
+		if err != nil {
+			return err
+		}
 	} else if len(joinAddresses) != 0 {
 		err = d.db.Join(d.ClusterCert(), d.Address, joinAddresses...)
 		if err != nil {

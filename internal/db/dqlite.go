@@ -78,7 +78,8 @@ func (db *DB) Bootstrap(clusterCert *shared.CertInfo, listenAddr api.URL) error 
 		return fmt.Errorf("Failed to bootstrap dqlite: %w", err)
 	}
 
-	return db.Open(true)
+	_, err = db.Open(true, listenAddr)
+	return err
 }
 
 // Join a dqlite cluster with the address of a member.
@@ -94,7 +95,12 @@ func (db *DB) Join(clusterCert *shared.CertInfo, listenAddr api.URL, joinAddress
 		return fmt.Errorf("Failed to join dqlite cluster %w", err)
 	}
 
-	return db.Open(false)
+	shouldWait, err := db.Open(false, listenAddr)
+	if shouldWait {
+		logger.Warn("MAW -- WE ARE HIGHEST NODE. SHOULD WAIT FOR SCHEMA UPDATE")
+	}
+
+	return err
 }
 
 // StartWithCluster starts up dqlite and joins the cluster.
@@ -115,7 +121,12 @@ func (db *DB) StartWithCluster(clusterMembers map[string]types.AddrPort, cluster
 		return fmt.Errorf("Failed to bootstrap dqlite: %w", err)
 	}
 
-	return db.Open(false)
+	shouldWait, err := db.Open(false, listenAddr)
+	if shouldWait {
+		logger.Warn("MAW -- WE ARE HIGHEST NODE. SHOULD WAIT FOR SCHEMA UPDATE")
+	}
+
+	return err
 }
 
 // Leader returns a client connected to the leader of the dqlite cluster.
