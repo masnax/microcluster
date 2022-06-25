@@ -92,12 +92,6 @@ func beginHeartbeat(state *state.State, r *http.Request, count int) response.Res
 		return response.SmartError(err)
 	}
 
-	// Update local record of cluster members from the database, including any pending nodes for authentication.
-	err = state.Remotes().Replace(state.OS.TrustDir, clusterMembers...)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
 	// Get dqlite record of cluster members.
 	dqliteCluster, err := state.Database.Cluster()
 	if err != nil {
@@ -137,6 +131,12 @@ func beginHeartbeat(state *state.State, r *http.Request, count int) response.Res
 		<-time.After(sleepInterval)
 		logger.Errorf("REDUNDANT [%v]", count)
 		return response.EmptySyncResponse
+	}
+
+	// Update local record of cluster members from the database, including any pending nodes for authentication.
+	err = state.Remotes().Replace(state.OS.TrustDir, clusterMembers...)
+	if err != nil {
+		return response.SmartError(err)
 	}
 
 	// Set the time of the last heartbeat to now.

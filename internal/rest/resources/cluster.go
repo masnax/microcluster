@@ -75,17 +75,6 @@ func clusterPost(state *state.State, r *http.Request) response.Response {
 
 	var clusterMembers []types.ClusterMember
 	err = state.Database.Transaction(state.Context, func(ctx context.Context, tx *db.Tx) error {
-		dbClusterMembers, err := cluster.GetClusterMembers(ctx, tx, cluster.ClusterMemberFilter{})
-		if err != nil {
-			return err
-		}
-
-		for _, clusterMember := range dbClusterMembers {
-			if req.Address.String() == clusterMember.Address {
-				return fmt.Errorf("Remote with address %q exists", req.Address.String())
-			}
-		}
-
 		dbClusterMember := cluster.ClusterMember{
 			Name:        req.Name,
 			Address:     req.Address.String(),
@@ -95,28 +84,15 @@ func clusterPost(state *state.State, r *http.Request) response.Response {
 			Role:        "pending",
 		}
 
-		_, err = cluster.CreateClusterMember(ctx, tx, dbClusterMember)
-		if err != nil {
-			return err
-		}
+		_, err := cluster.CreateClusterMember(ctx, tx, dbClusterMember)
 
-		dbClusterMembers, err = cluster.GetClusterMembers(ctx, tx, cluster.ClusterMemberFilter{})
-		if err != nil {
-			return err
-		}
-
-		clusterMembers = make([]types.ClusterMember, 0, len(dbClusterMembers))
-		for _, clusterMember := range dbClusterMembers {
-			apiClusterMember, err := clusterMember.ToAPI()
-			if err != nil {
-				return err
-			}
-
-			clusterMembers = append(clusterMembers, *apiClusterMember)
-		}
-
-		return nil
+		return err
 	})
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	err = state.Remotes().Add(state.OS.TrustDir, trust.Remote{Name: req.Name, Address: req.Address, Certificate: req.Certificate})
 	if err != nil {
 		return response.SmartError(err)
 	}
