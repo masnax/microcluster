@@ -13,9 +13,9 @@ type Secret struct {
 
 // SecretResponse holds the information for connecting to a cluster by a node with a valid join token.
 type SecretResponse struct {
-	ClusterCert    X509Certificate `json:"cluster_cert" yaml:"cluster_cert"`
-	ClusterKey     string          `json:"cluster_key" yaml:"cluster_key"`
-	ClusterMembers []ClusterMember `json:"cluster_members" yaml:"cluster_members"`
+	ClusterCert    X509Certificate      `json:"cluster_cert" yaml:"cluster_cert"`
+	ClusterKey     string               `json:"cluster_key" yaml:"cluster_key"`
+	ClusterMembers []ClusterMemberLocal `json:"cluster_members" yaml:"cluster_members"`
 }
 
 // Token holds the information that is presented to the joining node when requesting a token.
