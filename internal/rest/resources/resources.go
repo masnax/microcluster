@@ -21,6 +21,7 @@ var ControlEndpoints = &Resources{
 		secretsCmd,
 		secretCmd,
 		clusterCmd,
+		heartbeatCmd,
 	},
 }
 
@@ -42,5 +43,6 @@ var InternalEndpoints = &Resources{
 		secretsCmd,
 		secretCmd,
 		clusterCmd,
+		heartbeatCmd,
 	},
 }
