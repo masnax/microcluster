@@ -11,7 +11,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/lxc/lxd/shared"
 
-	"github.com/canonical/microcluster/internal/logger"
+	"github.com/canonical/microcluster/logger"
 )
 
 // Watcher represents an fsnotify watcher.

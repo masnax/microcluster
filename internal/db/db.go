@@ -10,9 +10,9 @@ import (
 	"github.com/lxc/lxd/lxd/db/query"
 	"github.com/lxc/lxd/lxd/db/schema"
 
-	"github.com/canonical/microcluster/internal/db/cluster"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/internal/db/update"
-	"github.com/canonical/microcluster/internal/logger"
+	"github.com/canonical/microcluster/logger"
 )
 
 // Tx is a convenience so we don't have to import sql.Tx everywhere.

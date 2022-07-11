@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/canonical/microcluster/internal/logger"
+	"github.com/canonical/microcluster/logger"
 )
 
 // Endpoints represents all listeners and servers for the microcluster daemon REST API.

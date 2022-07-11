@@ -11,12 +11,13 @@ import (
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/shared"
 
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/internal/db"
-	"github.com/canonical/microcluster/internal/db/cluster"
-	"github.com/canonical/microcluster/internal/rest"
 	"github.com/canonical/microcluster/internal/rest/access"
-	"github.com/canonical/microcluster/internal/rest/types"
+	internalTypes "github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
+	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microcluster/rest/types"
 )
 
 var secretsCmd = rest.Endpoint{
@@ -34,7 +35,7 @@ var secretCmd = rest.Endpoint{
 }
 
 func secretsPost(state *state.State, r *http.Request) response.Response {
-	req := types.Secret{}
+	req := internalTypes.Secret{}
 
 	// Parse the request.
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -59,7 +60,7 @@ func secretsPost(state *state.State, r *http.Request) response.Response {
 		return response.InternalError(err)
 	}
 
-	token := types.Token{
+	token := internalTypes.Token{
 		Token:       tokenKey,
 		ClusterCert: types.X509Certificate{Certificate: clusterCert},
 		JoinAddress: joinAddress,
@@ -112,7 +113,7 @@ func secretPost(state *state.State, r *http.Request) response.Response {
 	}
 
 	// Parse the request.
-	req := types.Secret{}
+	req := internalTypes.Secret{}
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		return response.BadRequest(err)
@@ -142,9 +143,9 @@ func secretPost(state *state.State, r *http.Request) response.Response {
 	}
 
 	remotes := state.Remotes()
-	clusterMembers := make([]types.ClusterMemberLocal, 0, remotes.Count())
+	clusterMembers := make([]internalTypes.ClusterMemberLocal, 0, remotes.Count())
 	for _, clusterMember := range remotes.RemotesByName() {
-		clusterMember := types.ClusterMemberLocal{
+		clusterMember := internalTypes.ClusterMemberLocal{
 			Name:        clusterMember.Name,
 			Address:     clusterMember.Address,
 			Certificate: clusterMember.Certificate,
@@ -153,7 +154,7 @@ func secretPost(state *state.State, r *http.Request) response.Response {
 		clusterMembers = append(clusterMembers, clusterMember)
 	}
 
-	secretResponse := types.SecretResponse{
+	secretResponse := internalTypes.SecretResponse{
 		ClusterCert: types.X509Certificate{Certificate: clusterCert},
 		ClusterKey:  string(state.ClusterCert().PrivateKey()),
 

@@ -7,7 +7,7 @@ import (
 	"github.com/canonical/microcluster/internal/rest/types"
 )
 
-// ControlDaemon posts control data to the cell/region daemon.
+// client.ControlDaemon posts control data to the MicroCluster daemon.
 func (c *Client) ControlDaemon(ctx context.Context, args types.Control) error {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

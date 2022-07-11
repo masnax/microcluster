@@ -24,10 +24,11 @@ import (
 	"github.com/lxc/lxd/shared/cancel"
 	"github.com/lxc/lxd/shared/tcp"
 
-	"github.com/canonical/microcluster/internal/logger"
 	"github.com/canonical/microcluster/internal/rest/client"
-	"github.com/canonical/microcluster/internal/rest/types"
+	internalTypes "github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/sys"
+	"github.com/canonical/microcluster/logger"
+	"github.com/canonical/microcluster/rest/types"
 )
 
 // DB holds all information internal to the dqlite database.
@@ -218,7 +219,7 @@ func (db *DB) heartbeat(ctx context.Context) {
 	}
 
 	// Initiate a heartbeat from this node.
-	err = client.Heartbeat(ctx, types.HeartbeatInfo{BeginRound: true})
+	err = client.Heartbeat(ctx, internalTypes.HeartbeatInfo{BeginRound: true})
 	if err != nil {
 		logger.Error("Failed to initiate heartbeat round", logger.Ctx{"address": db.dqlite.Address(), "error": err})
 		return

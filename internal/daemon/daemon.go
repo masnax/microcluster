@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lxc/lxd/lxd/db/schema"
 	"github.com/lxc/lxd/lxd/request"
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/lxd/util"
@@ -16,18 +17,20 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/validate"
 
+	"github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/internal/db"
-	"github.com/canonical/microcluster/internal/db/cluster"
 	"github.com/canonical/microcluster/internal/db/update"
 	"github.com/canonical/microcluster/internal/endpoints"
-	"github.com/canonical/microcluster/internal/logger"
-	"github.com/canonical/microcluster/internal/rest"
-	"github.com/canonical/microcluster/internal/rest/client"
+	internalREST "github.com/canonical/microcluster/internal/rest"
+	internalClient "github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/rest/resources"
-	"github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
 	"github.com/canonical/microcluster/internal/sys"
 	"github.com/canonical/microcluster/internal/trust"
+	"github.com/canonical/microcluster/logger"
+	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microcluster/rest/types"
 )
 
 // Daemon holds information for the microcluster daemon.
@@ -51,8 +54,8 @@ type Daemon struct {
 }
 
 // NewDaemon initializes the Daemon context and channels.
-func NewDaemon() *Daemon {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewDaemon(ctx context.Context) *Daemon {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Daemon{
 		ShutdownCtx:    ctx,
 		ShutdownCancel: cancel,
@@ -62,7 +65,7 @@ func NewDaemon() *Daemon {
 }
 
 // Init initializes the Daemon with the given configuration, and starts the database.
-func (d *Daemon) Init(addr string, stateDir string) error {
+func (d *Daemon) Init(addr string, stateDir string, publicEndpoints []rest.Endpoint, schemaExtensions map[int]schema.Update) error {
 	if stateDir == "" {
 		stateDir = os.Getenv(sys.StateDir)
 	}
@@ -79,7 +82,7 @@ func (d *Daemon) Init(addr string, stateDir string) error {
 		return fmt.Errorf("Failed to initialize directory structure: %w", err)
 	}
 
-	err = d.init()
+	err = d.init(publicEndpoints, schemaExtensions)
 	if err != nil {
 		return fmt.Errorf("Daemon failed to start: %w", err)
 	}
@@ -89,7 +92,7 @@ func (d *Daemon) Init(addr string, stateDir string) error {
 	return nil
 }
 
-func (d *Daemon) init() error {
+func (d *Daemon) init(publicEndpoints []rest.Endpoint, schemaExtensions map[int]schema.Update) error {
 	var err error
 	d.serverCert, err = util.LoadServerCert(d.os.StateDir)
 	if err != nil {
@@ -120,6 +123,10 @@ func (d *Daemon) init() error {
 	if err != nil {
 		return err
 	}
+
+	// Apply extensions to API/Schema.
+	resources.PublicEndpoints.Endpoints = append(resources.PublicEndpoints.Endpoints, publicEndpoints...)
+	update.AppendSchema(schemaExtensions)
 
 	return nil
 }
@@ -185,14 +192,14 @@ func (d *Daemon) initServer(resources ...*resources.Resources) *http.Server {
 	state := d.State()
 	for _, endpoints := range resources {
 		for _, e := range endpoints.Endpoints {
-			rest.HandleEndpoint(state, mux, string(endpoints.Path), e)
+			internalREST.HandleEndpoint(state, mux, string(endpoints.Path), e)
 
 			for _, alias := range e.Aliases {
 				ae := e
 				ae.Name = alias.Name
 				ae.Path = alias.Path
 
-				rest.HandleEndpoint(state, mux, string(endpoints.Path), ae)
+				internalREST.HandleEndpoint(state, mux, string(endpoints.Path), ae)
 			}
 		}
 	}
@@ -257,7 +264,7 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 		return err
 	}
 
-	server := d.initServer(resources.InternalEndpoints)
+	server := d.initServer(resources.InternalEndpoints, resources.PublicEndpoints)
 	network := endpoints.NewNetwork(endpoints.EndpointNetwork, server, d.Address, d.clusterCert)
 
 	err = d.endpoints.Add(network)
@@ -325,18 +332,18 @@ func (d *Daemon) StartAPI(bootstrap bool, joinAddresses ...string) error {
 		}
 
 		url := api.NewURL().Scheme("https").Host(addr.String())
-		client, err := client.New(*url, d.ServerCert(), publicKey, true)
+		c, err := internalClient.New(*url, d.ServerCert(), publicKey, true)
 		if err != nil {
 			return err
 		}
 
-		cluster = append(cluster, *client)
+		cluster = append(cluster, client.Client{Client: *c})
 	}
 
 	// Send notification that this node is upgraded to all other cluster members.
 	err = cluster.Query(d.ShutdownCtx, true, func(ctx context.Context, c *client.Client) error {
 		path := c.URL()
-		path = *path.Path(string(client.InternalEndpoint), "database")
+		path = *path.Path(string(internalClient.InternalEndpoint), "database")
 		upgradeRequest, err := http.NewRequest("PATCH", path.String(), nil)
 		if err != nil {
 			return err

@@ -7,15 +7,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/internal/db"
-	"github.com/canonical/microcluster/internal/db/cluster"
-	"github.com/canonical/microcluster/internal/logger"
-	"github.com/canonical/microcluster/internal/rest"
 	"github.com/canonical/microcluster/internal/rest/access"
 	"github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
 	"github.com/canonical/microcluster/internal/trust"
+	"github.com/canonical/microcluster/logger"
+	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/shared/api"
 )

@@ -22,24 +22,24 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/tcp"
 
-	"github.com/canonical/microcluster/internal/logger"
+	"github.com/canonical/microcluster/logger"
 )
 
 // EndpointType is a type specifying the endpoint on with the resource exists.
 type EndpointType string
 
 const (
-	// PublicEndpoint - all endpoints available with out authentication.
+	// PublicEndpoint - all endpoints available without authentication.
 	PublicEndpoint EndpointType = "public"
 
 	// InternalEndpoint - all endpoints restricted to trusted servers.
 	InternalEndpoint EndpointType = "internal"
 
-	// ControlEndpoint - to be used by the cell/region command line tools.
+	// ControlEndpoint - all endpoints available on the local unix socket.
 	ControlEndpoint EndpointType = "control"
 )
 
-// Client is a rest client for the region and cell daemons.
+// Client is a rest client for the daemon.
 type Client struct {
 	*http.Client
 	url api.URL

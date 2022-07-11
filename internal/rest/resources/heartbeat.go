@@ -9,13 +9,14 @@ import (
 
 	"github.com/lxc/lxd/lxd/response"
 
+	"github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/internal/db"
-	"github.com/canonical/microcluster/internal/db/cluster"
-	"github.com/canonical/microcluster/internal/logger"
-	"github.com/canonical/microcluster/internal/rest"
-	"github.com/canonical/microcluster/internal/rest/client"
+	internalClient "github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/rest/types"
 	"github.com/canonical/microcluster/internal/state"
+	"github.com/canonical/microcluster/logger"
+	"github.com/canonical/microcluster/rest"
 )
 
 var heartbeatCmd = rest.Endpoint{
@@ -124,10 +125,10 @@ func beginHeartbeat(state *state.State, r *http.Request) response.Response {
 	// If we sent out a heartbeat within double the request timeout,
 	// then wait the up to half the request timeout before exiting to prevent sending more unsuccessful attempts.
 	leaderEntry := clusterMap[state.Address.URL.Host]
-	heartbeatInterval := time.Duration(time.Second * client.HeartbeatTimeout * 2)
+	heartbeatInterval := time.Duration(time.Second * internalClient.HeartbeatTimeout * 2)
 	timeSinceLast := time.Since(leaderEntry.LastHeartbeat)
 	if timeSinceLast < heartbeatInterval {
-		sleepInterval := time.Duration(time.Second * client.HeartbeatTimeout / 2)
+		sleepInterval := time.Duration(time.Second * internalClient.HeartbeatTimeout / 2)
 		if timeSinceLast < sleepInterval {
 			sleepInterval = sleepInterval - timeSinceLast
 		}
@@ -170,7 +171,7 @@ func beginHeartbeat(state *state.State, r *http.Request) response.Response {
 		}
 
 		timeSinceLast := time.Since(currentMember.LastHeartbeat)
-		if timeSinceLast < time.Duration(time.Second*client.HeartbeatTimeout*2) {
+		if timeSinceLast < time.Duration(time.Second*internalClient.HeartbeatTimeout*2) {
 			logger.Warnf("Skipping heartbeat, one was sent %q ago", timeSinceLast.String())
 			return nil
 		}

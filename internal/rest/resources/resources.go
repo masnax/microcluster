@@ -1,8 +1,8 @@
 package resources
 
 import (
-	"github.com/canonical/microcluster/internal/rest"
 	"github.com/canonical/microcluster/internal/rest/client"
+	"github.com/canonical/microcluster/rest"
 )
 
 // Resources represents all the resources served over the same path.
@@ -27,11 +27,8 @@ var ControlEndpoints = &Resources{
 
 // PublicEndpoints are the /public API endpoints available without authentication.
 var PublicEndpoints = &Resources{
-	Path: client.PublicEndpoint,
-	Endpoints: []rest.Endpoint{
-		clusterCmd,
-		secretCmd,
-	},
+	Path:      client.PublicEndpoint,
+	Endpoints: []rest.Endpoint{},
 }
 
 // InternalEndpoints are the /internal API endpoints available at the listen address.

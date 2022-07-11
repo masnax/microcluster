@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/microcluster/internal/rest/types"
 )
 
-// GetSQL gets a SQL dump of the cell/daemon database.
+// GetSQL gets a SQL dump of the database.
 func (c *Client) GetSQL(ctx context.Context, schema bool) (*types.SQLDump, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -29,7 +29,7 @@ func (c *Client) GetSQL(ctx context.Context, schema bool) (*types.SQLDump, error
 	return dump, nil
 }
 
-// PostSQL executes a SQL query against the cell/region database.
+// PostSQL executes a SQL query against the database.
 func (c *Client) PostSQL(ctx context.Context, query types.SQLQuery) (*types.SQLBatch, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
