@@ -252,8 +252,13 @@ func (d *Daemon) StartAPI(bootstrap bool, runHook bool, joinAddresses ...string)
 		return fmt.Errorf("Failed to parse server certificate when bootstrapping API: %w", err)
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve hostname: %w", err)
+	}
+
 	localNode := trust.Remote{
-		Name:        filepath.Base(d.os.StateDir),
+		Name:        hostname,
 		Address:     addr,
 		Certificate: types.X509Certificate{Certificate: serverCert},
 	}
