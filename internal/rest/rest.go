@@ -190,7 +190,7 @@ func HandleEndpoint(state *internalState.State, mux *mux.Router, version string,
 
 		if !e.AllowedBeforeInit {
 			if !state.Database.IsOpen() {
-				err := response.Unavailable(fmt.Errorf("Daemon not yet initialized")).Render(w)
+				err := response.Unavailable(fmt.Errorf("Daemon not yet initialized %v--%v", e.Path, e.Method)).Render(w)
 				if err != nil {
 					logger.Error("Failed to write HTTP response", logger.Ctx{"url": r.URL, "err": err})
 				}
