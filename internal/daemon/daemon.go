@@ -389,8 +389,9 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 			return err
 		}
 
+		logger.Errorf("[MAW1]: %+v", d.trustStore.Remotes().RemotesByName())
 		s := d.State()
-		logger.Errorf("[MAW]: %+v", s.Remotes().RemotesByName())
+		logger.Errorf("[MAW2]: %+v", s.Remotes().RemotesByName())
 		return d.hooks.OnBootstrap(s)
 	}
 

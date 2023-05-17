@@ -179,6 +179,7 @@ func beginHeartbeat(s *state.State, r *http.Request) response.Response {
 	}
 	logger.Debug("Beginning new heartbeat round", logger.Ctx{"address": s.Address().URL.Host})
 
+	logger.Error("WHAT THE FUCK")
 	// Update local record of cluster members from the database, including any pending nodes for authentication.
 	err = s.Remotes().Replace(s.OS.TrustDir, clusterMembers...)
 	if err != nil {
