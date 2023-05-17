@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -359,7 +358,16 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 
 	// If bootstrapping the first node, just open the database and create an entry for ourselves.
 	if bootstrap {
-		err = d.db.Bootstrap(d.address, d.ClusterCert())
+		clusterMember := cluster.InternalClusterMember{
+			Name:        localNode.Name,
+			Address:     localNode.Address.String(),
+			Certificate: localNode.Certificate.String(),
+			Schema:      update.Schema().Version(),
+			Heartbeat:   time.Time{},
+			Role:        cluster.Pending,
+		}
+
+		err = d.db.Bootstrap(d.address, d.ClusterCert(), clusterMember)
 		if err != nil {
 			return err
 		}
@@ -369,30 +377,7 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 			return err
 		}
 
-		logger.Errorf("[CAW]: %+v", d.trustStore.Remotes().RemotesByName())
-
-		err = d.db.Transaction(d.ShutdownCtx, func(ctx context.Context, tx *sql.Tx) error {
-			clusterMember := cluster.InternalClusterMember{
-				Name:        localNode.Name,
-				Address:     localNode.Address.String(),
-				Certificate: localNode.Certificate.String(),
-				Schema:      update.Schema().Version(),
-				Heartbeat:   time.Time{},
-				Role:        cluster.Pending,
-			}
-
-			_, err := cluster.CreateInternalClusterMember(ctx, tx, clusterMember)
-
-			return err
-		})
-		if err != nil {
-			return err
-		}
-
-		logger.Errorf("[MAW1]: %+v", d.trustStore.Remotes().RemotesByName())
-		s := d.State()
-		logger.Errorf("[MAW2]: %+v", s.Remotes().RemotesByName())
-		return d.hooks.OnBootstrap(s)
+		return d.hooks.OnBootstrap(d.State())
 	}
 
 	if len(joinAddresses) != 0 {
