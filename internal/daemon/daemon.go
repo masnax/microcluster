@@ -338,6 +338,8 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 		}
 	}
 
+	logger.Errorf("[BAW]: %+v", d.trustStore.Remotes().RemotesByName())
+
 	d.clusterCert, err = util.LoadClusterCert(d.os.StateDir)
 	if err != nil {
 		return err
@@ -366,6 +368,8 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 		if err != nil {
 			return err
 		}
+
+		logger.Errorf("[CAW]: %+v", d.trustStore.Remotes().RemotesByName())
 
 		err = d.db.Transaction(d.ShutdownCtx, func(ctx context.Context, tx *sql.Tx) error {
 			clusterMember := cluster.InternalClusterMember{
