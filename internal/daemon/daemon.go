@@ -366,6 +366,7 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 			Role:        cluster.Pending,
 		}
 
+		logger.Errorf("MAW: Starting database")
 		err = d.db.Bootstrap(d.address, d.ClusterCert(), clusterMember)
 		if err != nil {
 			return err
