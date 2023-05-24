@@ -375,6 +375,7 @@ func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddress
 			return err
 		}
 
+		logger.Errorf("MAW: Running bootstrap hook")
 		return d.hooks.OnBootstrap(d.State())
 	}
 
