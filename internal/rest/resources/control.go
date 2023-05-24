@@ -45,6 +45,7 @@ func controlPost(state *state.State, r *http.Request) response.Response {
 	}
 
 	daemonConfig := &trust.Location{Address: req.Address, Name: req.Name}
+	logger.Errorf("MAW: Running STARTAPI")
 	err = state.StartAPI(req.Bootstrap, daemonConfig)
 	if err != nil {
 		return response.SmartError(err)

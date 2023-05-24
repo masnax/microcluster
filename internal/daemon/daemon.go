@@ -304,6 +304,7 @@ func (d *Daemon) initServer(resources ...*resources.Resources) *http.Server {
 // StartAPI starts up the admin and consumer APIs, and generates a cluster cert
 // if we are bootstrapping the first node.
 func (d *Daemon) StartAPI(bootstrap bool, newConfig *trust.Location, joinAddresses ...string) error {
+	logger.Errorf("MAW: INSIDE STARTAPI")
 	if newConfig != nil {
 		err := d.setDaemonConfig(newConfig)
 		if err != nil {
