@@ -92,17 +92,19 @@ func (db *DB) Bootstrap(addr api.URL, clusterCert *shared.CertInfo, clusterRecor
 
 	err = db.Open(true)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to open database: %w", err)
 	}
 
 	err = db.Transaction(db.ctx, func(ctx context.Context, tx *sql.Tx) error {
-
 		_, err := cluster.CreateInternalClusterMember(ctx, tx, clusterRecord)
+		if err != nil {
+			return fmt.Errorf("Failed to create internal cluster member: %w", err)
+		}
 
-		return err
+		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to complete internal cluster member transaction: %w", err)
 	}
 
 	go db.loopHeartbeat()
