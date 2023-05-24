@@ -3,6 +3,8 @@ package cluster
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/lxc/lxd/shared/logger"
 )
 
 var stmts = map[int]string{}            // Statement code to statement SQL text
@@ -22,8 +24,9 @@ func RegisterStmt(sql string) int {
 
 // PrepareStmts prepares all registered statements and stores them in preparedStmts.
 func PrepareStmts(db *sql.DB, skipErrors bool) error {
+	preparedStmts = map[int]*sql.Stmt{} // Statement code to SQL statement.
 	for code, stmt := range stmts {
-		fmt.Printf("STMT: %v\n", stmt)
+		logger.Errorf("STMT: %v\n", stmt)
 
 		preparedStmt, err := db.Prepare(stmt)
 		if err != nil && !skipErrors {
