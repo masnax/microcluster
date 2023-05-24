@@ -27,12 +27,12 @@ func (db *DB) Open(bootstrap bool) error {
 
 	err := db.dqlite.Ready(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to check if dqlite is ready: %w", err)
 	}
 
 	db.db, err = db.dqlite.Open(db.ctx, db.dbName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed top actually open dqlite: %w", err)
 	}
 
 	otherNodesBehind := false
@@ -80,7 +80,11 @@ func (db *DB) Open(bootstrap bool) error {
 
 	err = db.retry(func() error {
 		_, err = newSchema.Ensure(db.db)
-		return err
+		if err != nil {
+			return fmt.Errorf("Failed to ensure schema: %w", err)
+		}
+
+		return nil
 	})
 
 	// Check if other nodes are behind before checking the error.
@@ -98,12 +102,12 @@ func (db *DB) Open(bootstrap bool) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to retry scheme ensuring: %w", err)
 	}
 
 	err = cluster.PrepareStmts(db.db, false)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to setup prepared statements: %w", err)
 	}
 
 	db.openCanceller.Cancel()

@@ -23,6 +23,8 @@ func RegisterStmt(sql string) int {
 // PrepareStmts prepares all registered statements and stores them in preparedStmts.
 func PrepareStmts(db *sql.DB, skipErrors bool) error {
 	for code, stmt := range stmts {
+		fmt.Printf("STMT: %v\n", stmt)
+
 		preparedStmt, err := db.Prepare(stmt)
 		if err != nil && !skipErrors {
 			return fmt.Errorf("%q: %w", stmt, err)
