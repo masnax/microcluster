@@ -1,0 +1,43 @@
+#!/bin/zsh
+
+body() {
+  if [[ $1 == "" ]] ; then
+    echo "<start/kill> <count> <addr-prefix>"
+    return
+  fi
+
+  if [[ $1 == "kill" ]] ; then
+    kill -9 `pidof -x microd`
+    rm -rf /micro*
+    return
+  fi
+
+
+  if [[ $1 == "start" ]] ; then
+    count=$2
+    prefix="9"
+    if [[ $3 != "" ]] ; then
+      prefix="$3"
+    fi
+
+    DQLITE_SOCKET=@micro0.dqlite /root/go/bin/microd --state-dir /micro0 2>&1 --verbose &
+    /root/go/bin/microctl waitready --state-dir /micro0
+   # /root/go/bin/microctl init micro0 127.0.0.1:${prefix}000 --bootstrap --state-dir /micro0
+    echo "Bootstrapped First Node"
+    for i in `seq 1 $count`; do
+      mkdir /micro$i
+      DQLITE_SOCKET=@micro$i.dqlite /root/go/bin/microd --state-dir /micro$i --verbose &
+      /root/go/bin/microctl waitready --state-dir /micro$i
+      echo "Daemon at state dir /micro$i created."
+    done
+
+   # for i in `seq 1 $count`; do
+   #   token=$(/root/go/bin/microctl --state-dir /micro0 tokens add "micro$i"_token)
+   #   echo Secret Requested.
+   #   /root/go/bin/microctl init micro$i 127.0.0.1:${prefix}00$i --token ${token} --state-dir /micro$i
+   #   echo Member $i joined.
+   # done
+  fi
+}
+
+body $@

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+
+while true ; do
+  for i in `seq 0 30` ; do
+  microctl --state-dir /micro$i extended &
+  done
+  wait $(jobs -p)
+  sleep 0.01
+done

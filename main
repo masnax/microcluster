@@ -1,0 +1,118 @@
+#!/bin/sh
+
+
+check_started() {
+  while true ; do
+   #lxc ls -f csv -c 46 | grep "enp5s0.*enp5s0" | wc -l | grep -q 3 && return
+   lxc ls -f csv -c 46 | grep '(enp5s0)' | wc -l | grep -q $1 && return
+   sleep 1
+  done
+}
+
+
+count=3
+reset=0
+
+# Cleanup
+if [ "${1:-""}" = "reset" ]; then
+    reset=1
+    shift 1
+fi
+
+if [[ $1 != "" ]] ; then
+  count=$1
+  shift 1
+fi
+
+if [[ $reset == 1 ]]; then
+    set -eux
+    lxc project switch microcloud
+    set +e
+
+    for i in `seq 1 $count` ; do
+        m="micro0$i"
+        lxc delete -f "$m"
+        lxc storage volume delete default "$m"-disk1
+        lxc storage volume delete default "$m"-disk2
+        lxc storage volume delete default "$m"-disk3
+    done
+
+    lxc profile device remove default eth1
+    lxc profile device remove default eth0
+    lxc profile device remove default root
+
+    lxc network delete microbr0
+
+    for fp in $(lxc image list -cf -fcsv); do
+        lxc image delete "${fp}"
+    done
+
+    lxc project switch default
+    lxc project delete microcloud
+    exit 0
+fi
+
+
+
+set -eux
+
+# Create project
+lxc project create microcloud
+lxc project switch microcloud
+
+# Setup default profile
+lxc profile device add default root disk pool=default path=/
+lxc profile device add default eth0 nic network=lxdbr1 name=eth0
+
+# Create uplink network
+lxc network create microbr0 \
+    ipv4.address=10.123.123.1/24 ipv4.dhcp=false ipv4.nat=true \
+    ipv6.address=fd42:1234:1234:1234::1/64 ipv6.nat=true
+lxc profile device add default eth1 nic network=microbr0 name=eth1
+
+for i in `seq 1 $count` ; do
+  m="micro0$i"
+  # Create extra disks
+  #lxc storage volume create default "$m"-disk1 size=3GiB --type=block
+  #lxc storage volume create default "$m"-disk2 size=4GiB --type=block
+  #lxc storage volume create default "$m"-disk3 size=5GiB --type=block
+
+  # Create instances
+  lxc init ubuntu:22.04 "$m"
+  #lxc config device add "$m" disk1 disk pool=default source="$m"-disk1
+  #lxc config device add "$m" disk2 disk pool=default source="$m"-disk2
+  #lxc config device add "$m" disk3 disk pool=default source="$m"-disk3
+  lxc start "$m"
+done
+
+sleep 10
+
+for i in `seq 1 $count` ; do
+  m="micro0$i"
+  # Bring enp6s0 up but disable IPv6 (should do through netplan)
+  #lxc exec "$m" -- ip link set enp6s0 up
+  #lxc exec "$m" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp6s0/disable_ipv6"
+
+  # Install the snaps
+  lxc exec "$m" -- snap install microcloud --edge
+
+  #  lxc file push /root/go/bin/lxc $i/root/lxc.debug
+  #  lxc file push /root/go/bin/lxd $i/root/lxd.debug
+  #  lxc exec $m -- sh -c "mv /root/lx[cd].debug /var/snap/lxd/common ; systemctl reload snap.lxd.daemon"
+done
+
+# Show settings
+set +x
+echo ""
+echo "Disks:"
+echo "  Local storage: Use 3GiB disks"
+echo "  Remote storage: Use 5GiB disks"
+echo "OVN:"
+echo "  IPv4 subnet: 10.123.123.1/24"
+echo "  IPv4 start:  10.123.123.100"
+echo "  IPv4 end:    10.123.123.254"
+echo "  IPv6 subnet: fd42:1234:1234:1234::1/64"
+echo ""
+
+# Run microcloud init
+#lxc exec micro01 -- microcloud init
