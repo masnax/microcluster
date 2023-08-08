@@ -59,6 +59,7 @@ func tokensPost(state *state.State, r *http.Request) response.Response {
 		joinAddresses = append(joinAddresses, addr)
 	}
 
+	logger.Errorf("MAW: %v", len(joinAddresses))
 	if len(joinAddresses) == 0 {
 		logger.Warnf("Failed to check trust store for eligible join addresses. Issuing token with join address %q", state.Address().URL.Host)
 		joinAddresses, err = types.ParseAddrPorts([]string{state.Address().URL.Host})
