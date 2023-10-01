@@ -89,6 +89,10 @@ func (r *Remotes) Add(dir string, remotes ...Remote) error {
 	defer r.updateMu.Unlock()
 
 	for _, remote := range remotes {
+		if remote.Name == "" || (remote.Address == types.AddrPort{}) || (remote.Certificate == types.X509Certificate{}) {
+			return fmt.Errorf("(2) Received incomplete cluster record: name: %v, address: %v, certificate: %v", remote.Name, remote.Address.String(), remote.Certificate.String())
+		}
+
 		if remote.Certificate.Certificate == nil {
 			return fmt.Errorf("Failed to parse local record %q. Found empty certificate", remote.Name)
 		}
@@ -129,6 +133,12 @@ func (r *Remotes) Add(dir string, remotes ...Remote) error {
 func (r *Remotes) Replace(dir string, newRemotes ...internalTypes.ClusterMember) error {
 	r.updateMu.Lock()
 	defer r.updateMu.Unlock()
+
+	for _, remote := range newRemotes {
+		if remote.Name == "" || (remote.Address == types.AddrPort{}) || (remote.Certificate == types.X509Certificate{}) {
+			return fmt.Errorf("Received incomplete cluster record: name: %v, address: %v, certificate: %v", remote.Name, remote.Address.String(), remote.Certificate.String())
+		}
+	}
 
 	for _, remote := range r.data {
 		remotePath := filepath.Join(dir, fmt.Sprintf("%s.yaml", remote.Name))
