@@ -63,10 +63,11 @@ func (s *SchemaUpdate) Version() (internalVersion uint64, externalVersion uint64
 //
 // If no error occurs, the integer returned by this method is the
 // initial version that the schema has been upgraded from.
-func (s *SchemaUpdate) Ensure(db *sql.DB) (int, error) {
+func (s *SchemaUpdate) Ensure(db *sql.DB) (maxInternalVersion int, maxExternalVersion int, err error) {
 	var current int
 	aborted := false
-	err := query.Transaction(context.TODO(), db, func(ctx context.Context, tx *sql.Tx) error {
+	versions := []int{0, 0}
+	err = query.Transaction(context.TODO(), db, func(ctx context.Context, tx *sql.Tx) error {
 		err := execFromFile(ctx, tx, s.path, s.hook)
 		if err != nil {
 			return fmt.Errorf("Failed to execute queries from %s: %w", s.path, err)
@@ -77,7 +78,6 @@ func (s *SchemaUpdate) Ensure(db *sql.DB) (int, error) {
 			return fmt.Errorf("Failed to check if schema table is there: %w", err)
 		}
 
-		var versions []int
 		if exists {
 			// updateFromV1 changes the schema table and needs to be run before we calculate the schema version.
 			err := updateFromV1(ctx, tx)
@@ -110,7 +110,7 @@ func (s *SchemaUpdate) Ensure(db *sql.DB) (int, error) {
 
 		// When creating the schema from scratch, use the fresh dump if
 		// available. Otherwise just apply all relevant updates.
-		if versions == nil && s.fresh != "" {
+		if versions[updateInternal] == 0 && versions[updateExternal] == 0 && s.fresh != "" {
 			_, err = tx.ExecContext(ctx, s.fresh)
 			if err != nil {
 				return fmt.Errorf("Cannot apply fresh schema: %w", err)
@@ -124,21 +124,19 @@ func (s *SchemaUpdate) Ensure(db *sql.DB) (int, error) {
 
 		return nil
 	})
+
 	if err != nil {
-		return -1, err
+		return versions[updateInternal], versions[updateExternal], err
 	}
 	if aborted {
-		return current, schema.ErrGracefulAbort
+		return versions[updateInternal], versions[updateExternal], schema.ErrGracefulAbort
 	}
-	return current, nil
+
+	return versions[updateInternal], versions[updateExternal], nil
 }
 
 // Apply any pending update that was not yet applied.
 func ensureUpdatesAreApplied(ctx context.Context, tx *sql.Tx, versions []int, schemaUpdates map[updateType][]schema.Update, hook schema.Hook) error {
-	if versions == nil {
-		versions = []int{0, 0}
-	}
-
 	// Internal updates should be run before external ones.
 	updateOrder := []updateType{updateInternal, updateExternal}
 	for _, updateType := range updateOrder {
