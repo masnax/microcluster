@@ -148,8 +148,14 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 	}
 
 	err := db.retry(context.TODO(), func(_ context.Context) error {
-		_, err := newSchema.Ensure(db.db)
-		if err != nil {
+		maxInternal, _, err := newSchema.Ensure(db.db)
+		if err != nil && err != schema.ErrGracefulAbort {
+			return err
+		}
+
+		// If the maximum internal version is less than 3, we are not capable of checking API extensions,
+		// so wait for the schema to be updated by another node before comparing API extensions.
+		if maxInternal < 3 && err != nil {
 			return err
 		}
 
