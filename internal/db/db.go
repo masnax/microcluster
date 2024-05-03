@@ -50,6 +50,36 @@ func (db *DB) Open(ext extensions.Extensions, bootstrap bool, project string) er
 	return nil
 }
 
+type Service struct {
+	ID      int
+	Member  string `db:"primary=yes&join=internal_cluster_members.name&joinon=services.member_id"`
+	Service string `db:"primary=yes"`
+}
+
+// getServicesRaw can be used to run handwritten query strings to return a slice of objects.
+func getServicesRaw(ctx context.Context, tx *sql.Tx, sql string, args ...any) ([]Service, error) {
+	objects := make([]Service, 0)
+
+	dest := func(scan func(dest ...any) error) error {
+		s := Service{}
+		err := scan(&s.ID, &s.Member, &s.Service)
+		if err != nil {
+			return err
+		}
+
+		objects = append(objects, s)
+
+		return nil
+	}
+
+	err := query.Scan(ctx, tx, sql, dest, args...)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to fetch from \"services\" table: %w", err)
+	}
+
+	return objects, nil
+}
+
 // waitUpgrade compares the version information of all cluster members in the database to the local version.
 // If this node's version is ahead of others, then it will block on the `db.upgradeCh` or up to a minute.
 // If this node's version is behind others, then it returns an error.
@@ -147,7 +177,31 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 		newSchema.Check(checkVersions)
 	}
 
-	err := db.retry(context.TODO(), func(_ context.Context) error {
+	var servers []Service
+	err := db.Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+
+		stmt := `
+SELECT services.id, internal_cluster_members.name AS member, services.service
+  FROM services
+  JOIN internal_cluster_members ON services.member_id = internal_cluster_members.id
+  ORDER BY internal_cluster_members.id, services.service
+		`
+		var err error
+		servers, err = getServicesRaw(ctx, tx, stmt)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	logger.Errorf("MAW X: %v", servers)
+
+	err = db.retry(context.TODO(), func(_ context.Context) error {
 		_, err := newSchema.Ensure(db.db)
 		if err != nil {
 			return err
@@ -187,6 +241,29 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 		return nil
 	})
 
+	servers = nil
+	err = db.Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+
+		stmt := `
+SELECT services.id, internal_cluster_members.name AS member, services.service
+  FROM services
+  JOIN internal_cluster_members ON services.member_id = internal_cluster_members.id
+  ORDER BY internal_cluster_members.id, services.service
+		`
+		var err error
+		servers, err = getServicesRaw(ctx, tx, stmt)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	logger.Errorf("MAW O: %v", servers)
 	// If we are not bootstrapping, wait for an upgrade notification, or wait a minute before checking again.
 	if otherNodesBehind && !bootstrap {
 		logger.Warn("Waiting for other cluster members to upgrade their versions", logger.Ctx{"address": db.listenAddr.String()})
