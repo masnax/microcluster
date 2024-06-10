@@ -7,7 +7,6 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
-	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/example/api"
 	"github.com/canonical/microcluster/example/database"
 	"github.com/canonical/microcluster/example/version"
@@ -72,7 +71,7 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// exampleHooks are some example post-action hooks that can be run by MicroCluster.
-	exampleHooks := &config.Hooks{
+	exampleHooks := &state.Hooks{
 		// PostBootstrap is run after the daemon is initialized and bootstrapped.
 		PostBootstrap: func(s *state.State, initConfig map[string]string) error {
 			logCtx := logger.Ctx{}
