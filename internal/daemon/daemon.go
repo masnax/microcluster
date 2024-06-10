@@ -30,11 +30,12 @@ import (
 	internalClient "github.com/canonical/microcluster/internal/rest/client"
 	"github.com/canonical/microcluster/internal/rest/resources"
 	internalTypes "github.com/canonical/microcluster/internal/rest/types"
-	"github.com/canonical/microcluster/internal/state"
+	internalState "github.com/canonical/microcluster/internal/state"
 	"github.com/canonical/microcluster/internal/sys"
 	"github.com/canonical/microcluster/internal/trust"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/rest/types"
+	"github.com/canonical/microcluster/state"
 )
 
 // Daemon holds information for the microcluster daemon.
@@ -698,8 +699,14 @@ func (d *Daemon) Name() string {
 	return d.name
 }
 
+// FileSystem returns the filesystem structure for the daemon.
+func (d *Daemon) FileSystem() *sys.OS {
+	copyOS := *d.os
+	return &copyOS
+}
+
 // State creates a State instance with the daemon's stateful components.
-func (d *Daemon) State() *state.State {
+func (d *Daemon) State() state.State {
 	state.PreRemoveHook = d.hooks.PreRemove
 	state.PostRemoveHook = d.hooks.PostRemove
 	state.OnHeartbeatHook = d.hooks.OnHeartbeat
@@ -714,18 +721,18 @@ func (d *Daemon) State() *state.State {
 		return d.endpoints.Down()
 	}
 
-	state := &state.State{
-		Context:     d.shutdownCtx,
-		ReadyCh:     d.ReadyChan,
-		OS:          d.os,
-		Address:     d.Address,
-		Name:        d.Name,
-		Endpoints:   d.endpoints,
-		ServerCert:  d.ServerCert,
-		ClusterCert: d.ClusterCert,
-		Database:    d.db,
-		Remotes:     d.trustStore.Remotes,
-		StartAPI:    d.StartAPI,
+	state := &internalState.InternalState{
+		Context:             d.shutdownCtx,
+		ReadyCh:             d.ReadyChan,
+		StartAPI:            d.StartAPI,
+		Endpoints:           d.endpoints,
+		InternalFileSystem:  d.FileSystem,
+		InternalAddress:     d.Address,
+		InternalName:        d.Name,
+		InternalServerCert:  d.ServerCert,
+		InternalClusterCert: d.ClusterCert,
+		InternalDatabase:    d.db,
+		InternalRemotes:     d.trustStore.Remotes,
 		Stop: func() (exit func(), stopErr error) {
 			stopErr = d.stop()
 			exit = func() {
