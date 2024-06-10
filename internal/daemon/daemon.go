@@ -233,9 +233,9 @@ func (d *Daemon) init(listenPort string, schemaExtensions []schema.Update, apiEx
 
 func (d *Daemon) applyHooks(hooks *state.Hooks) {
 	// Apply a no-op hooks for any missing hooks.
-	noOpHook := func(s *state.State) error { return nil }
-	noOpRemoveHook := func(s *state.State, force bool) error { return nil }
-	noOpInitHook := func(s *state.State, initConfig map[string]string) error { return nil }
+	noOpHook := func(s state.State) error { return nil }
+	noOpRemoveHook := func(s state.State, force bool) error { return nil }
+	noOpInitHook := func(s state.State, initConfig map[string]string) error { return nil }
 
 	if hooks == nil {
 		d.hooks = state.Hooks{}
@@ -707,12 +707,8 @@ func (d *Daemon) FileSystem() *sys.OS {
 
 // State creates a State instance with the daemon's stateful components.
 func (d *Daemon) State() state.State {
-	state.PreRemoveHook = d.hooks.PreRemove
-	state.PostRemoveHook = d.hooks.PostRemove
-	state.OnHeartbeatHook = d.hooks.OnHeartbeat
-	state.OnNewMemberHook = d.hooks.OnNewMember
-	state.ReloadClusterCert = d.ReloadClusterCert
-	state.StopListeners = func() error {
+	internalState.ReloadClusterCert = d.ReloadClusterCert
+	internalState.StopListeners = func() error {
 		err := d.fsWatcher.Close()
 		if err != nil {
 			return err
