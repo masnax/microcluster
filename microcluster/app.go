@@ -73,7 +73,7 @@ func App(args Args) (*MicroCluster, error) {
 // database exists yet. Any api or schema extensions can be applied here.
 // - `extensionsSchema` is a list of schema updates in the order that they should be applied.
 // - `hooks` are a set of functions that trigger at certain points during cluster communication.
-func (m *MicroCluster) Start(ctx context.Context, extensionsSchema []schema.Update, apiExtensions []string, hooks *state.Hooks) error {
+func (m *MicroCluster) Start(ctx context.Context, state state.ExtendedState, extensionsSchema []schema.Update, apiExtensions []string, hooks *state.Hooks) error {
 	// Initialize the logger.
 	err := logger.InitLogger(m.FileSystem.LogFile, "", m.args.Verbose, m.args.Debug, nil)
 	if err != nil {
@@ -90,7 +90,7 @@ func (m *MicroCluster) Start(ctx context.Context, extensionsSchema []schema.Upda
 	ctx, cancel := signal.NotifyContext(ctx, unix.SIGPWR, unix.SIGTERM, unix.SIGINT, unix.SIGQUIT)
 	defer cancel()
 
-	err = d.Run(ctx, m.args.ListenPort, m.FileSystem.StateDir, m.FileSystem.SocketGroup, extensionsSchema, apiExtensions, m.args.ExtensionServers, hooks)
+	err = d.Run(ctx, state, m.args.ListenPort, m.FileSystem.StateDir, m.FileSystem.SocketGroup, extensionsSchema, apiExtensions, m.args.ExtensionServers, hooks)
 	if err != nil {
 		return fmt.Errorf("Daemon stopped with error: %w", err)
 	}

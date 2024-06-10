@@ -70,6 +70,8 @@ type Daemon struct {
 	stop func() error
 
 	extensionServers []rest.Server
+
+	externalState state.ExtendedState
 }
 
 // NewDaemon initializes the Daemon context and channels.
@@ -98,7 +100,7 @@ func NewDaemon(project string) *Daemon {
 // - `extensionsSchema` is a list of schema updates in the order that they should be applied.
 // - `extensionServers` is a list of rest.Server that will be initialized and managed by microcluster.
 // - `hooks` are a set of functions that trigger at certain points during cluster communication.
-func (d *Daemon) Run(ctx context.Context, listenPort string, stateDir string, socketGroup string, extensionsSchema []schema.Update, apiExtensions []string, extensionServers []rest.Server, hooks *state.Hooks) error {
+func (d *Daemon) Run(ctx context.Context, externalState state.ExtendedState, listenPort string, stateDir string, socketGroup string, extensionsSchema []schema.Update, apiExtensions []string, extensionServers []rest.Server, hooks *state.Hooks) error {
 	d.shutdownCtx, d.shutdownCancel = context.WithCancel(ctx)
 	if stateDir == "" {
 		stateDir = os.Getenv(sys.StateDir)
@@ -129,6 +131,7 @@ func (d *Daemon) Run(ctx context.Context, listenPort string, stateDir string, so
 
 	d.extensionServers = extensionServers
 
+	d.externalState = externalState
 	err = d.init(listenPort, extensionsSchema, apiExtensions, hooks)
 	if err != nil {
 		return fmt.Errorf("Daemon failed to start: %w", err)
@@ -738,6 +741,14 @@ func (d *Daemon) State() state.State {
 			return exit, stopErr
 		},
 		Extensions: d.Extensions,
+		Hooks:      &d.hooks,
+	}
+
+	// If an external state has been provided, apply the internal state and return the external one.
+	if d.externalState != nil {
+		d.externalState.SetState(state)
+
+		return d.externalState
 	}
 
 	return state
