@@ -205,5 +205,20 @@ func ToInternal(s State) (*InternalState, error) {
 		return internal, nil
 	}
 
-	return nil, fmt.Errorf("Underlying State is not an InternalState")
+	extended, ok := s.(ExtendedState)
+	if !ok {
+		return nil, fmt.Errorf("State is not an ExtendedState")
+	}
+
+	state := extended.GetState()
+	if state == nil {
+		return nil, fmt.Errorf("Extended state is missing the underlying InternalState")
+	}
+
+	internal, ok = state.(*InternalState)
+	if !ok {
+		return nil, fmt.Errorf("Underlying State is not an InternalState")
+	}
+
+	return internal, nil
 }

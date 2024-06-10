@@ -7,3 +7,6 @@ type State = state.State
 
 // Hooks exposes the Hooks struct to be imported by the upstream project.
 type Hooks = state.Hooks
+
+// ExtendedState exposes the ExtendedState interface to be imported by the upstream project.
+type ExtendedState = state.ExtendedState
