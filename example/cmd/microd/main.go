@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/microcluster/example/api"
 	"github.com/canonical/microcluster/example/database"
+	extendedState "github.com/canonical/microcluster/example/state"
 	"github.com/canonical/microcluster/example/version"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/state"
@@ -173,7 +174,7 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	return m.Start(cmd.Context(), database.SchemaExtensions, api.Extensions(), exampleHooks)
+	return m.Start(cmd.Context(), &extendedState.MyState{AdditionalField: "Test1"}, database.SchemaExtensions, api.Extensions(), exampleHooks)
 }
 
 func main() {

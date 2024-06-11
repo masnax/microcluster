@@ -7,10 +7,12 @@ import (
 	"net/http"
 
 	"github.com/canonical/lxd/lxd/response"
+	"github.com/canonical/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/client"
 	extendedTypes "github.com/canonical/microcluster/example/api/types"
 	extendedClient "github.com/canonical/microcluster/example/client"
+	extendedState "github.com/canonical/microcluster/example/state"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/rest/types"
 	"github.com/canonical/microcluster/state"
@@ -66,6 +68,10 @@ func cmdPost(state state.State, r *http.Request) response.Response {
 		for _, message := range messages {
 			outMsg = outMsg + message + "\n"
 		}
+
+		myState, _ := state.(*extendedState.MyState)
+
+		logger.Infof("MyState has the additional field: %q", myState.AdditionalField)
 
 		return response.SyncResponse(true, outMsg)
 	}
