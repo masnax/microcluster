@@ -127,6 +127,8 @@ func (d *Daemon) Run(ctx context.Context, listenPort string, stateDir string, so
 		return fmt.Errorf("Daemon failed to start: %w", err)
 	}
 
+	logger.Errorf("OVNTEST: PASSED READY (%v)", d.db.IsOpen())
+
 	err = d.hooks.OnStart(d.State())
 	if err != nil {
 		return fmt.Errorf("Failed to run post-start hook: %w", err)
