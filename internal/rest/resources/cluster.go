@@ -209,7 +209,7 @@ func clusterGet(s *state.State, r *http.Request) response.Response {
 		if err == nil {
 			apiClusterMembers[i].Status = internalTypes.MemberOnline
 		} else {
-			logger.Warnf("Failed to get status of cluster member with address %q: %v", addr.String(), err)
+			logger.Errorf("OVNTEST: Failed to get status of cluster member with address %q: %v", addr.String(), err)
 		}
 	}
 
