@@ -202,6 +202,7 @@ func (db *DB) IsOpen() bool {
 func (db *DB) NotifyUpgraded() {
 	select {
 	case db.upgradeCh <- struct{}{}:
+		logger.Errorf("OVNTEST NOTIFIED")
 	default:
 	}
 }

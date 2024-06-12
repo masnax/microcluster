@@ -530,6 +530,12 @@ func (d *Daemon) StartAPI(bootstrap bool, initConfig map[string]string, newConfi
 			return nil
 		}
 
+		for name, r := range remotes.RemotesByName() {
+			if r.URL().URL.Host == c.URL().URL.Host {
+				logger.Errorf("OVNTEST %v NOTIFYING: %v", d.name, name)
+			}
+		}
+
 		// Send notification about this node's dqlite version to all other cluster members.
 		err = d.sendUpgradeNotification(ctx, c)
 		if err != nil {

@@ -150,6 +150,7 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 	err := db.retry(context.TODO(), func(_ context.Context) error {
 		_, err := newSchema.Ensure(db.db)
 		if err != nil {
+			logger.Errorf("OVNTEST SCHEMA FAILED: %v", err)
 			return err
 		}
 
@@ -175,10 +176,12 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 				return nil
 			})
 			if err != nil {
+				logger.Errorf("OVNTEST API FAILED: %v", err)
 				return err
 			}
 
 			if otherNodesBehindAPI {
+				logger.Errorf("OVNTEST OTHER NODES BEHIND")
 				otherNodesBehind = true
 				return schema.ErrGracefulAbort
 			}
@@ -190,6 +193,7 @@ func (db *DB) waitUpgrade(bootstrap bool, ext extensions.Extensions) error {
 	// If we are not bootstrapping, wait for an upgrade notification, or wait a minute before checking again.
 	if otherNodesBehind && !bootstrap {
 		logger.Warn("Waiting for other cluster members to upgrade their versions", logger.Ctx{"address": db.listenAddr.String()})
+		logger.Errorf("OVNTEST WAITING")
 		select {
 		case <-db.upgradeCh:
 		case <-time.After(30 * time.Second):
