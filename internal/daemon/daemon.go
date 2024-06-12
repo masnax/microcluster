@@ -539,7 +539,7 @@ func (d *Daemon) StartAPI(bootstrap bool, initConfig map[string]string, newConfi
 		// Send notification about this node's dqlite version to all other cluster members.
 		err = d.sendUpgradeNotification(ctx, c)
 		if err != nil {
-			return err
+			logger.Errorf("Failed to send upgrade notification, other nodes may need to be restarted: %v", err)
 		}
 
 		// If this was a join request, instruct all peers to run their OnNewMember hook.
