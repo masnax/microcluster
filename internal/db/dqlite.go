@@ -151,11 +151,13 @@ func (db *DB) Join(extensions extensions.Extensions, project string, addr api.UR
 	for {
 		var err error
 		db.listenAddr = addr
+		logger.Errorf("REPLACING DQLITE")
 		db.dqlite, err = dqlite.New(db.os.DatabaseDir,
 			dqlite.WithCluster(joinAddresses),
 			dqlite.WithAddress(db.listenAddr.URL.Host),
 			dqlite.WithExternalConn(db.dialFunc(), db.acceptCh),
 			dqlite.WithUnixSocket(os.Getenv(sys.DqliteSocket)))
+		logger.Errorf("REPLACED DQLITE, %v", err)
 		if err != nil {
 			return fmt.Errorf("Failed to join dqlite cluster %w", err)
 		}
