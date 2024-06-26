@@ -168,12 +168,14 @@ func (db *DB) Join(extensions extensions.Extensions, project string, addr api.UR
 
 		// If this is a graceful abort, then we should loop back and try to start the database again.
 		if errors.Is(err, schema.ErrGracefulAbort) {
-			logger.Errorf("SKIP ERROR")
+			logger.Errorf("SKIP ERROR %v", db.db == nil)
 			logger.Debug("Closing database after upgrade notification", logger.Ctx{"address": db.listenAddr.String()})
 			err = db.db.Close()
 			if err != nil {
 				logger.Error("Failed to close database", logger.Ctx{"address": db.listenAddr.String(), "error": err})
 			}
+
+			logger.Errorf("SKIPPED ERROR %v", db.db == nil)
 
 			continue
 		}
