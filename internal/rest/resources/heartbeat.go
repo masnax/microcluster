@@ -34,7 +34,7 @@ func heartbeatPost(s *state.State, r *http.Request) response.Response {
 	}
 
 	if hbInfo.BeginRound {
-		return beginHeartbeat(s, r)
+		return beginHeartbeat(r.Context(), s, hbInfo)
 	}
 
 	// If we are not beginning a heartbeat, we are receiving one sent by the leader,
@@ -85,29 +85,18 @@ func heartbeatPost(s *state.State, r *http.Request) response.Response {
 
 // beginHeartbeat initiates a heartbeat from the leader node to all other cluster members, if we haven't sent one out
 // recently.
-func beginHeartbeat(s *state.State, r *http.Request) response.Response {
+func beginHeartbeat(ctx context.Context, s *state.State, hbReq types.HeartbeatInfo) response.Response {
 	// Set a 5 second timeout in case dqlite locks up.
 	ctx, cancel := context.WithTimeout(s.Context, time.Second*30)
 	defer cancel()
 
-	// Only a leader can begin a heartbeat round.
-	leader, err := s.Database.Leader(ctx)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
-	leaderInfo, err := leader.Leader(ctx)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
-	if s.Address().URL.Host != leaderInfo.Address {
+	if s.Address().URL.Host != hbReq.LeaderAddress {
 		return response.SmartError(fmt.Errorf("Attempt to initiate heartbeat from non-leader"))
 	}
 
 	// Get the database record of cluster members.
 	var clusterMembers []types.ClusterMember
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		dbClusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
 		if err != nil {
 			return err
@@ -130,19 +119,15 @@ func beginHeartbeat(s *state.State, r *http.Request) response.Response {
 	}
 
 	// Get dqlite record of cluster members.
-	dqliteCluster, err := s.Database.Cluster(ctx, leader)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
+	dqliteCluster := hbReq.DqliteRoles
 	if len(clusterMembers) == 0 || len(dqliteCluster) == 0 {
 		logger.Info("Skipping heartbeat as the cluster is still initializing")
 		return response.EmptySyncResponse
 	}
 
 	dqliteMap := map[string]string{}
-	for _, member := range dqliteCluster {
-		dqliteMap[member.Address] = member.Role.String()
+	for member, role := range dqliteCluster {
+		dqliteMap[member] = role
 	}
 
 	// Update database with dqlite member roles.
