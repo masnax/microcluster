@@ -86,17 +86,13 @@ func heartbeatPost(s *state.State, r *http.Request) response.Response {
 // beginHeartbeat initiates a heartbeat from the leader node to all other cluster members, if we haven't sent one out
 // recently.
 func beginHeartbeat(ctx context.Context, s *state.State, hbReq types.HeartbeatInfo) response.Response {
-	// Set a 5 second timeout in case dqlite locks up.
-	ctx, cancel := context.WithTimeout(s.Context, time.Second*30)
-	defer cancel()
-
 	if s.Address().URL.Host != hbReq.LeaderAddress {
 		return response.SmartError(fmt.Errorf("Attempt to initiate heartbeat from non-leader"))
 	}
 
 	// Get the database record of cluster members.
 	var clusterMembers []types.ClusterMember
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.Database.Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		dbClusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
 		if err != nil {
 			return err
@@ -148,24 +144,10 @@ func beginHeartbeat(ctx context.Context, s *state.State, hbReq types.HeartbeatIn
 	// If we sent out a heartbeat within double the request timeout,
 	// then wait the up to half the request timeout before exiting to prevent sending more unsuccessful attempts.
 	leaderEntry := clusterMap[s.Address().URL.Host]
-	heartbeatInterval := time.Duration(time.Second * internalClient.HeartbeatTimeout * 2)
+	heartbeatInterval := time.Duration(time.Second * 10)
 	timeSinceLast := time.Since(leaderEntry.LastHeartbeat)
 	if timeSinceLast < heartbeatInterval {
-		sleepInterval := time.Duration(time.Second * internalClient.HeartbeatTimeout / 2)
-		timeUntilNext := time.Until(leaderEntry.LastHeartbeat.Add(heartbeatInterval))
-
-		// If we can send out a heartbeat sooner than the sleep timeout, sleep just long enough.
-		if timeUntilNext < sleepInterval {
-			sleepInterval = timeUntilNext
-		}
-
-		// Sleep at least 2 seconds to sync up with other nodes.
-		if sleepInterval < 2*time.Second {
-			sleepInterval = 2 * time.Second
-		}
-
-		logger.Debugf("Heartbeat was sent %v ago, sleep %v seconds before retrying", timeSinceLast, sleepInterval)
-		<-time.After(sleepInterval)
+		logger.Debugf("Heartbeat was sent %v ago, sleep seconds before retrying", timeSinceLast)
 
 		return response.EmptySyncResponse
 	}
@@ -215,7 +197,7 @@ func beginHeartbeat(ctx context.Context, s *state.State, hbReq types.HeartbeatIn
 		}
 
 		timeSinceLast := time.Since(currentMember.LastHeartbeat)
-		if timeSinceLast < time.Duration(time.Second*internalClient.HeartbeatTimeout*2) {
+		if timeSinceLast < time.Duration(time.Second*10) {
 			logger.Warnf("Skipping heartbeat, one was sent %q ago", timeSinceLast.String())
 			return nil
 		}
