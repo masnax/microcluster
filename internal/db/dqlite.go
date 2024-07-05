@@ -119,6 +119,8 @@ func (db *DB) Bootstrap(extensions extensions.Extensions, project string, addr a
 	db.listenAddr = addr
 	db.dqlite, err = dqlite.New(db.os.DatabaseDir,
 		dqlite.WithAddress(db.listenAddr.URL.Host),
+		dqlite.WithRolesAdjustmentFrequency(time.Second*5),
+		dqlite.WithRolesAdjustmentHook(db.heartbeat),
 		dqlite.WithExternalConn(db.dialFunc(), db.acceptCh),
 		dqlite.WithUnixSocket(os.Getenv(sys.DqliteSocket)))
 	if err != nil {
@@ -150,6 +152,8 @@ func (db *DB) Join(extensions extensions.Extensions, project string, addr api.UR
 	db.listenAddr = addr
 	db.dqlite, err = dqlite.New(db.os.DatabaseDir,
 		dqlite.WithCluster(joinAddresses),
+		dqlite.WithRolesAdjustmentFrequency(time.Second*5),
+		dqlite.WithRolesAdjustmentHook(db.heartbeat),
 		dqlite.WithAddress(db.listenAddr.URL.Host),
 		dqlite.WithExternalConn(db.dialFunc(), db.acceptCh),
 		dqlite.WithUnixSocket(os.Getenv(sys.DqliteSocket)))
@@ -286,6 +290,52 @@ func (db *DB) dialFunc() dqliteClient.DialFunc {
 
 		return conn, nil
 	}
+}
+
+func (db *DB) heartbeat(leader *dqliteClient.Client, servers []dqliteClient.NodeInfo) error {
+	// Use the heartbeat lock to prevent another heartbeat attempt if we are currently initiating one.
+	db.heartbeatLock.Lock()
+	defer db.heartbeatLock.Unlock()
+
+	if db.IsOpen(context.Background()) != nil {
+		logger.Debug("Database is not yet open, aborting heartbeat", logger.Ctx{"address": db.listenAddr.String()})
+		return nil
+	}
+
+	leaderInfo, err := leader.Leader(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to reach dqlite leader")
+	}
+
+	if leaderInfo.Address != db.listenAddr.URL.Host {
+		logger.Debugf("Not leader")
+		return nil
+	}
+
+	client, err := client.New(db.os.ControlSocket(), nil, nil, false)
+	if err != nil {
+		logger.Error("Failed to get local client", logger.Ctx{"address": db.listenAddr.String(), "error": err})
+		return nil
+	}
+
+	// Initiate a heartbeat from this node.
+	hbInfo := internalTypes.HeartbeatInfo{
+		BeginRound:    true,
+		LeaderAddress: leaderInfo.Address,
+		DqliteRoles:   make(map[string]string, len(servers)),
+	}
+
+	for _, server := range servers {
+		hbInfo.DqliteRoles[server.Address] = server.Role.String()
+	}
+
+	err = client.Heartbeat(context.Background(), hbInfo)
+	if err != nil && err.Error() != "Attempt to initiate heartbeat from non-leader" {
+		logger.Error("Failed to initiate heartbeat round", logger.Ctx{"address": db.dqlite.Address(), "error": err})
+		return nil
+	}
+
+	return nil
 }
 
 // dqliteNetworkDial creates a connection to the internal database endpoint.
