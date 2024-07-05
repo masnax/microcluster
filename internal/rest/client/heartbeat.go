@@ -10,7 +10,7 @@ import (
 )
 
 // HeartbeatTimeout is the maximum request timeout for a heartbeat request.
-const HeartbeatTimeout = 30
+const HeartbeatTimeout = 3
 
 // Heartbeat initiates a new heartbeat sequence if this is a leader node.
 func (c *Client) Heartbeat(ctx context.Context, hbInfo types.HeartbeatInfo) error {
