@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	dqliteClient "github.com/canonical/go-dqlite/client"
+	dqliteClient "github.com/canonical/go-dqlite/v2/client"
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
@@ -297,7 +297,7 @@ func clusterMemberPut(s *state.State, r *http.Request) response.Response {
 	}()
 
 	return response.ManualResponse(func(w http.ResponseWriter) error {
-		err := response.EmptySyncResponse.Render(w)
+		err := response.EmptySyncResponse.Render(w, r)
 		if err != nil {
 			return err
 		}
@@ -394,7 +394,7 @@ func clusterMemberDelete(s *state.State, r *http.Request) response.Response {
 		}
 
 		return response.ManualResponse(func(w http.ResponseWriter) error {
-			err := response.EmptySyncResponse.Render(w)
+			err := response.EmptySyncResponse.Render(w, r)
 			if err != nil {
 				return err
 			}
@@ -511,7 +511,7 @@ func clusterMemberDelete(s *state.State, r *http.Request) response.Response {
 		}
 
 		return response.ManualResponse(func(w http.ResponseWriter) error {
-			err := response.EmptySyncResponse.Render(w)
+			err := response.EmptySyncResponse.Render(w, r)
 			if err != nil {
 				return err
 			}

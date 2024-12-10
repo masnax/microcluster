@@ -1,4 +1,4 @@
-GOMIN=1.22.0
+GOMIN=1.23.3
 
 .PHONY: default
 default: update-schema
